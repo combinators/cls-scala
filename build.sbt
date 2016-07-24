@@ -11,6 +11,7 @@ lazy val root = (project in file("."))
   .settings(
     libraryDependencies ++= Seq(
       "de.tu_dortmund.cs.ls14" %% "shapeless-feat" % "0.1.0",
+      "org.scala-lang" % "scala-compiler" % scalaVersion.value,
       "org.scalactic" %% "scalactic" % "2.2.6",
       "org.scalatest" %% "scalatest" % "2.2.6" % "test"
     ),
