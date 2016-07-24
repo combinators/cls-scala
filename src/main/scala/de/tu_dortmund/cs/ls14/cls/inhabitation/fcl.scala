@@ -102,6 +102,7 @@ class FiniteCombinatoryLogic(subtypes: SubtypeEnvironment, repository: Repositor
     }
 
     prune(inhabitRec(Map.empty)(target))
+    //inhabitRec(Map.empty)(target)
   }
 
   private def prune(grammar: TreeGrammar): TreeGrammar = {
@@ -121,12 +122,10 @@ class FiniteCombinatoryLogic(subtypes: SubtypeEnvironment, repository: Repositor
     lazy val groundTypes = groundRec(Set.empty)
     grammar.foldLeft[TreeGrammar](Map.empty) {
       case (g, (k, vs)) =>
-        vs.filter {
+        val pruned = vs.filter {
           case (_, args) => args.forall(groundTypes)
-        } match {
-          case Seq() => g
-          case ok => g + (k -> ok)
         }
+        if (pruned.isEmpty) g else (g + (k -> pruned))
     }
   }
 }

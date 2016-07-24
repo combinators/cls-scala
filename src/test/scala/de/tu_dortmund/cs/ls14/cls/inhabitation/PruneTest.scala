@@ -39,8 +39,8 @@ class PruneTest extends FunSpec {
       val results = Gamma.inhabit(tgt)
       it("should contain only f(x)") {
         assert(results == Map(
-            Constructor("Goal") -> ("f", Seq(Constructor("Int"))),
-            Constructor("Int") -> ("x", Seq())
+            Constructor("Goal") -> Set(("f", Seq(Constructor("Int")))),
+            Constructor("Int") -> Set(("x", Seq()))
           ))
       }
     }
