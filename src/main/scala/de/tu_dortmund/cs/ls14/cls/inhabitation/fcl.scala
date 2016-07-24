@@ -2,6 +2,8 @@ package de.tu_dortmund.cs.ls14.cls.inhabitation
 
 import de.tu_dortmund.cs.ls14.cls.types._
 
+import scala.annotation.tailrec
+
 class FiniteCombinatoryLogic(subtypes: SubtypeEnvironment, repository: Repository) {
   import subtypes._
 
@@ -99,6 +101,32 @@ class FiniteCombinatoryLogic(subtypes: SubtypeEnvironment, repository: Repositor
       }
     }
 
-    inhabitRec(Map.empty)(target)
+    prune(inhabitRec(Map.empty)(target))
+  }
+
+  private def prune(grammar: TreeGrammar): TreeGrammar = {
+    @tailrec def groundRec(groundTypes: Set[Type]): Set[Type] = {
+      lazy val groundTypesNext =
+        grammar.foldLeft(groundTypes) {
+          case (s, (k, vs))
+            if vs.exists { case (_, args) =>
+              args.forall(groundTypes)
+            } => s + k
+          case (s, _) => s
+        }
+      if (groundTypesNext.size != groundTypes.size) {
+        groundRec(groundTypesNext)
+      } else groundTypesNext
+    }
+    lazy val groundTypes = groundRec(Set.empty)
+    grammar.foldLeft[TreeGrammar](Map.empty) {
+      case (g, (k, vs)) =>
+        vs.filter {
+          case (_, args) => args.forall(groundTypes)
+        } match {
+          case Seq() => g
+          case ok => g + (k -> ok)
+        }
+    }
   }
 }
