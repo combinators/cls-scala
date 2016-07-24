@@ -3,13 +3,13 @@ package de.tu_dortmund.cs.ls14.cls.types
 import shapeless.feat.Enumeration
 
 sealed trait Kinding extends (Variable => Enumeration[Type]) { self =>
-  protected val underlyingMap: Map[Variable, Enumeration[Type]]
+  val underlyingMap: Map[Variable, Enumeration[Type]]
   protected val head: Variable
 
   def addOptions(options: Enumeration[Type]) =
     new Kinding {
       val underlyingMap: Map[Variable, Enumeration[Type]] =
-        underlyingMap.updated(self.head, self(self.head).union(options))
+        self.underlyingMap.updated(self.head, self(self.head).union(options))
       val head: Variable = self.head
     }
 
