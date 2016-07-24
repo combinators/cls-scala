@@ -102,7 +102,6 @@ class FiniteCombinatoryLogic(subtypes: SubtypeEnvironment, repository: Repositor
     }
 
     prune(inhabitRec(Map.empty)(target))
-    //inhabitRec(Map.empty)(target)
   }
 
   private def prune(grammar: TreeGrammar): TreeGrammar = {

@@ -43,6 +43,16 @@ class PruneTest extends FunSpec {
             Constructor("Int") -> Set(("x", Seq()))
           ))
       }
+      it("should only unroll to Tree(f, Tree(x))") {
+        assert(
+          TreeGrammarEnumeration(results, tgt).values ==
+            (0, Stream.empty[Tree]) #::
+              (0, Stream.empty[Tree]) #::
+              (1, Tree("f", Tree("x")) #:: Stream.empty[Tree]) #::
+              (0, Stream.empty[Tree]) #::
+              Stream.empty[(Int, Stream[Tree])]
+        )
+      }
     }
   }
 

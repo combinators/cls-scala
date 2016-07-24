@@ -22,6 +22,7 @@ class BCLTest extends FunSpec {
   val taxonomy =
     Taxonomy("Char")
       .addSubtype("Int")
+      .merge(Taxonomy("String"))
 
   def addAll(k: Kinding): Kinding =
     k.addOption(Constructor("Char"))
@@ -35,9 +36,18 @@ class BCLTest extends FunSpec {
 
   describe(Gamma.toString) {
     describe("|- ? : String") {
-      val results = Gamma.inhabit(Constructor("String"))
+      val tgt = Constructor("List", Constructor("String"))
+      val results = Gamma.inhabit(tgt)
       it("should not be empty") {
         assert(results.nonEmpty)
+      }
+      it("should unroll exactly to Tree(map, Tree(f), Tree(l))") {
+        assert(
+          TreeGrammarEnumeration(results, tgt)
+            .values
+            .flatMap(_._2).toSet ==
+            Set(Tree("map", Tree("f"), Tree("l")))
+        )
       }
     }
   }

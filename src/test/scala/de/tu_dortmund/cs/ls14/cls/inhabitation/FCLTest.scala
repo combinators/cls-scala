@@ -38,21 +38,21 @@ class FCLTest extends FunSpec {
       it("should contain Succ(Int & Even)") {
         assert(results(tgt).contains("Succ", Seq(Intersection(tgt, Constructor("Even")))))
       }
-      /*it("should contain Succ(Int & Odd)") {
-        assert(results(tgt).contains("Succ", Seq(Intersection(tgt, Constructor("Odd")))))
+      it("should unroll to Tree(Zero) at index 0") {
+        assert(TreeGrammarEnumeration(results, Constructor("Int")).index(0) == Tree("Zero"))
       }
-      it("should not contain another type") {
-        assert((results.keySet -
-          Intersection(tgt, Constructor("Even")) -
-          Intersection(tgt, Constructor("Odd")) ).isEmpty)
-      }*/
+      it("should unroll to Tree(Succ, Tree(Succ, Tree(Succ, Tree(Zero)))) at index 4") {
+        assert(
+          TreeGrammarEnumeration(results, Constructor("Int")).index(4) ==
+          Tree("Succ", Tree("Succ", Tree("Succ", Tree("Succ", Tree("Zero"))))))
+      }
     }
 
     describe("|- ? : List(Int)") {
       val tgt = Constructor("List", Constructor("Int"))
       val results = Gamma.inhabit(tgt)
       it("should be empty") {
-        assert(results(tgt).isEmpty)
+        assert(results.isEmpty)
       }
     }
 
