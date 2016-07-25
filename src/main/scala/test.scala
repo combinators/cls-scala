@@ -4,5 +4,5 @@
 
 object Test extends App {
 
-  println(test.html.foo("bar").toString())
+  //println(test.html.foo("bar").toString())
 }
