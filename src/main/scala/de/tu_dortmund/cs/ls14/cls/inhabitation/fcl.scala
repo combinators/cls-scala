@@ -49,76 +49,90 @@ class FiniteCombinatoryLogic(subtypes: SubtypeEnvironment, repository: Repositor
         }
     }
 
-  private def debugPrint[A](x: A, msg: String = ""): A = {
+  private final def debugPrint[A](x: A, msg: String = ""): A = {
     //println(s"$msg : $x")
     x
   }
 
-  def inhabit(target: Type): TreeGrammar = {
-    def inhabitRec(result: TreeGrammar)(target: Type): TreeGrammar = {
-      debugPrint(target, ">>> Current target")
-      debugPrint(result, ">>> Result so far")
+  // Returns the new tree grammar after inhabiting target and a stream of new goals.
+  final def inhabitStep(result: TreeGrammar)(target: Type): (TreeGrammar, Stream[Type]) = {
+    debugPrint(target, ">>> Current target")
+    debugPrint(result, ">>> Result so far")
 
-      if (result.contains(target)) result else {
+    if (result.contains(target)) (result, Stream.empty) else {
 
-        result.find(kv => kv._1.isSupertype(target) && target.isSupertype(kv._1)) match {
-          case Some(kv) => result + (target -> kv._2)
-          case None =>
-            val orgTgt =
-              Organized.intersect(target match {
-                case Organized(paths) => paths
-              })
+      result.find(kv => kv._1.isSupertype(target) && target.isSupertype(kv._1)) match {
+        case Some(kv) => (result + (target -> kv._2), Stream.empty)
+        case None =>
+          val orgTgt =
+            Organized.intersect(target match {
+              case Organized(paths) => paths
+            })
 
-            val recursiveTargets: Map[String, Iterable[Seq[Type]]] =
-              organizedRepository.mapValues { case Organized(cPaths) =>
-                debugPrint(orgTgt, "Covering component")
-                debugPrint(cPaths, "Using paths")
-                cPaths
-                  .flatMap(relevantFor(orgTgt, _))
-                  .map(debugPrint(_, "Of those are relevant"))
-                  .groupBy(x => x._1.size)
-                  .mapValues { case pathComponents =>
-                    subseqs(pathComponents)
-                      .map(debugPrint(_, "path component"))
-                      .filter(components =>
-                        target.isSupertype(Organized.intersect(components.map(_._2))))
-                      .map(components => intersectArguments(components.map(_._1)))
-                  }
-                  .map(debugPrint(_, "Recursively inhabiting"))
-                  .values.toSet.flatten
-              }
-            val newProductions: Set[(String, Seq[Type])] =
-              recursiveTargets.toSeq.flatMap { case (c, tgts) =>
-                tgts.map((c, _))
-              }.toSet
+          val recursiveTargets: Map[String, Iterable[Seq[Type]]] =
+            organizedRepository.mapValues { case Organized(cPaths) =>
+              debugPrint(orgTgt, "Covering component")
+              debugPrint(cPaths, "Using paths")
+              cPaths
+                .flatMap(relevantFor(orgTgt, _))
+                .map(debugPrint(_, "Of those are relevant"))
+                .groupBy(x => x._1.size)
+                .mapValues { case pathComponents =>
+                  subseqs(pathComponents)
+                    .map(debugPrint(_, "path component"))
+                    .filter(components =>
+                      target.isSupertype(Organized.intersect(components.map(_._2))))
+                    .map(components => intersectArguments(components.map(_._1)))
+                }
+                .map(debugPrint(_, "Recursively inhabiting"))
+                .values.toSet.flatten
+            }
+          val newProductions: Set[(String, Seq[Type])] =
+            recursiveTargets.toSeq.flatMap { case (c, tgts) =>
+              tgts.map((c, _))
+            }.toSet
 
-            newProductions
-              .flatMap(_._2)
-              .foldRight(result + (target -> newProductions)) { case (tgt, s) =>
-                inhabitRec(s)(tgt)
-              }
-        }
+          (result + (target -> newProductions),
+            newProductions.flatMap(_._2).toStream)
       }
     }
-
-    prune(inhabitRec(Map.empty)(target))
   }
 
-  private def prune(grammar: TreeGrammar): TreeGrammar = {
-    @tailrec def groundRec(groundTypes: Set[Type]): Set[Type] = {
-      lazy val groundTypesNext =
-        grammar.foldLeft(groundTypes) {
+  // Iterate inhabitStep
+  final def inhabitRec(target: Type): Stream[(TreeGrammar, Stream[Type])] = {
+    val (steps, stable) = Stream.iterate((Map.empty[Type, Set[(String, Seq[Type])]], target #:: Stream.empty))
+    {
+      case (grammar, target #:: targets) =>
+        val (newGrammar, newTargets) = inhabitStep(grammar)(target)
+        (newGrammar, targets.append(newTargets))
+    } .span(_._2.nonEmpty)
+    steps :+ stable.head
+  }
+
+
+  def inhabit(target: Type): TreeGrammar = {
+    prune(inhabitRec(target).last._1)
+  }
+
+  final def groundTypesOf(grammar: TreeGrammar): Set[Type] = {
+    def groundStep(previousGroundTypes: Set[Type]): Set[Type] = {
+        grammar.foldLeft(previousGroundTypes) {
           case (s, (k, vs))
             if vs.exists { case (_, args) =>
-              args.forall(groundTypes)
+              args.forall(previousGroundTypes)
             } => s + k
           case (s, _) => s
         }
-      if (groundTypesNext.size != groundTypes.size) {
-        groundRec(groundTypesNext)
-      } else groundTypesNext
-    }
-    lazy val groundTypes = groundRec(Set.empty)
+      }
+    lazy val groundStream = Stream.iterate(Set.empty[Type])(groundStep)
+    groundStream
+      .zip(groundStream.tail)
+      .takeWhile{ case (oldTypes, newTypes) => newTypes.size != oldTypes.size }
+      .last._2
+  }
+
+  final def prune(grammar: TreeGrammar): TreeGrammar = {
+    lazy val groundTypes = groundTypesOf(grammar)
     grammar.foldLeft[TreeGrammar](Map.empty) {
       case (g, (k, vs)) =>
         val pruned = vs.filter {
