@@ -69,9 +69,12 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: String => Set[String]) {
   lazy val transitiveReflexiveTaxonomicSubtypesOf: String => Set[String] =
     new mutable.HashMap[String, Set[String]] {
       override def apply(sigma: String): Set[String] =
-        getOrElseUpdate(sigma, taxonomicSubtypesOf(sigma).flatMap {
-          tau => transitiveReflexiveTaxonomicSubtypesOf(tau)
-        } + sigma)
+        getOrElseUpdate(sigma, {
+          update(sigma, Set(sigma))
+          taxonomicSubtypesOf(sigma).flatMap {
+            case tau => transitiveReflexiveTaxonomicSubtypesOf(tau)
+          } + sigma
+        })
     }
 
 
@@ -129,7 +132,7 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: String => Set[String]) {
 }
 
 sealed trait Taxonomy extends (String => Set[String]) { self =>
-  protected val underlyingMap: Map[String, Set[String]]
+  val underlyingMap: Map[String, Set[String]]
   protected val head: String
 
   def addSubtype(entry: String): Taxonomy =
@@ -144,7 +147,7 @@ sealed trait Taxonomy extends (String => Set[String]) { self =>
         self
           .merge(entries)
           .underlyingMap
-          .updated(self.head, self(head) + entries.head)
+          .updated(self.head, self(self.head) + entries.head)
       val head: String = self.head
     }
 
@@ -152,7 +155,7 @@ sealed trait Taxonomy extends (String => Set[String]) { self =>
     new Taxonomy {
       val underlyingMap =
         entries.underlyingMap.foldLeft(self.underlyingMap) {
-          case (m, (k, v)) => m.updated(k, m.getOrElse(k, Set.empty) & v)
+          case (m, (k, v)) => m.updated(k, m.getOrElse(k, Set.empty) ++ v)
         }
       val head: String = self.head
     }
