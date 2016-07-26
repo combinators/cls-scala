@@ -19,6 +19,6 @@ object TreeGrammarEnumeration {
             }
           s.union(args.map(Tree(name, _ : _*)).pay)
       }
-    unroll(root)
+    if (!grammar.contains(root)) Enumeration.empty else unroll(root)
   }
 }

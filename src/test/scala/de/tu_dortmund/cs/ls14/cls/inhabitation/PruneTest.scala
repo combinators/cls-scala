@@ -54,6 +54,16 @@ class PruneTest extends FunSpec {
         )
       }
     }
+    describe("|- ? : Garbage1") {
+      val tgt = Constructor("Garbage1")
+      val results = Gamma.inhabit(tgt)
+      it("should be empty") {
+        assert(results.isEmpty)
+      }
+      it("should unroll to an empty enumeration") {
+        assert(TreeGrammarEnumeration(results, tgt).values.isEmpty)
+      }
+    }
   }
 
 }

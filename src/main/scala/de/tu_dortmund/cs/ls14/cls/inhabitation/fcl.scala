@@ -128,7 +128,9 @@ class FiniteCombinatoryLogic(subtypes: SubtypeEnvironment, repository: Repositor
     groundStream
       .zip(groundStream.tail)
       .takeWhile{ case (oldTypes, newTypes) => newTypes.size != oldTypes.size }
-      .last._2
+      .lastOption
+      .map(_._2)
+      .getOrElse(Set.empty[Type])
   }
 
   final def prune(grammar: TreeGrammar): TreeGrammar = {
