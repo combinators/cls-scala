@@ -15,7 +15,7 @@ class InterpreterTest extends FunSpec {
 
   trait Repository1 {
     @combinator object f {
-      def apply(x: Int, y: String): List[Super] = List.empty
+      def apply(x: => Int, y: String): List[Super] = List.empty
       def semanticType = Omega =>: 'bar =>: 'foo
     }
     object foo

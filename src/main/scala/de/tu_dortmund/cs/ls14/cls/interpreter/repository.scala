@@ -28,14 +28,27 @@ trait ReflectedRepository[A] {
   lazy val combinatorComponents = {
     typeTag.tpe.members.flatMap (member =>
         member.annotations.foldLeft[Seq[CombinatorInfo]](Seq()) {
-          case (Seq(), c) if c.tree.tpe == universe.typeOf[combinator] =>
+          case (Seq(), c) if c.tree.tpe =:= universe.typeOf[combinator] =>
             val combinatorName = member.name.toString
             val applyMethod = member.typeSignature.member(TermName("apply")).asMethod
+            if (applyMethod.typeParams.nonEmpty)
+              throw new RuntimeException("Combinator methods cannot have type parameters")
             val (applyMethodParameters, applyMethodResult) =
               applyMethod.typeSignature match {
-                case NullaryMethodType(result) => (None, result.finalResultType)
-                case MethodType(params, result) => (Some(params.map(p => p.info)), result)
+                case NullaryMethodType(result) => (None, result)
+                case MethodType(params, result) =>
+                  val paramTys =
+                    Some(params.map(p => {
+                      val byName = definitions.ByNameParamClass
+                      val paramTy = p.info match {
+                        case TypeRef(_, sym, pTy :: Nil) if sym == byName => pTy // lazyness => T
+                        case pTy => pTy
+                      }
+                      paramTy
+                    }))
+                  (paramTys, result)
               }
+
             val semanticType =
               member
                 .typeSignature
