@@ -4,6 +4,8 @@ import de.tu_dortmund.cs.ls14.cls.types._
 import shapeless.feat.Enumeration
 
 class BoundedCombinatoryLogic(kinding: Kinding, subtypes: SubtypeEnvironment, Gamma: Repository) {
+  import subtypes._
+
   private lazy val substitutions: Enumeration[Variable => Type] = {
     lazy val varMappings = kinding.underlyingMap.map {
       case (v, e) => e.map((v -> _))
@@ -30,15 +32,19 @@ class BoundedCombinatoryLogic(kinding: Kinding, subtypes: SubtypeEnvironment, Ga
     subst(sigma)
   }
 
-  private def blowUp(sigma: => Type): Enumeration[Type] =
-    substitutions.map { s => applySubst(s)(sigma) }
+  private def blowUp(sigma: => Type): Enumeration[Stream[Type with Path]] =
+    substitutions.map { s => applySubst(s)(sigma) match { case Organized(ps) => ps.toStream } }
 
-  private def blowUp(Gamma: => Repository): Repository =
-    Gamma.mapValues(ty => blowUp(ty).values.foldLeft[Type](Omega){
-      case (s, (_, tys)) => tys.foldLeft(s){
-        case (s, ty) => Intersection(ty, s)
-      }
-    })
+  private def blowUp(Gamma: => Repository): Repository = {
+    Gamma.mapValues { case ty =>
+      val paths =
+        blowUp(ty).values.foldLeft[Stream[Type with Path]](Stream.empty) {
+          case (s, (_, ps)) =>
+            s.append(ps.flatten.filter(p => !s.exists(_.isSubtype(p))))
+        }
+      Organized.intersect(paths)
+    }
+  }
 
   lazy val repository = blowUp(Gamma)
   lazy val algorithm = new FiniteCombinatoryLogic(subtypes, repository)
