@@ -7,14 +7,14 @@ class BoundedCombinatoryLogic(kinding: Kinding, subtypes: SubtypeEnvironment, Ga
   import subtypes._
 
   private lazy val substitutions: Enumeration[Variable => Type] = {
-    lazy val varMappings = kinding.underlyingMap.map {
+    lazy val varMappings = kinding.underlyingMap.toStream.map {
       case (v, e) => e.map((v -> _))
     }
     varMappings.tail.foldLeft(varMappings.headOption.getOrElse(Enumeration.empty).map(Map(_))) {
       case (substs, e) => substs.product(e).map {
         case (subst, vt) => subst + vt
       }
-    }.pay
+    }
   }
 
   private def applySubst(s: => Variable => Type)(sigma: Type): Type = {

@@ -129,7 +129,7 @@ trait ReflectedRepository[A] {
         case Tree(name, arguments@_*) =>
           q"$instanceTerm.${toTermName(name)}(..${arguments.map(constructTerm)})"
       }
-    tb.eval(q"${constructTerm(inhabitant)}").asInstanceOf[A]
+    tb.eval(constructTerm(inhabitant)).asInstanceOf[A]
   }
 
 }
@@ -152,8 +152,8 @@ object ReflectedRepository {
 
   def apply[R](inst: R)(implicit tag: WeakTypeTag[R]): ReflectedRepository[R] =
     new ReflectedRepository[R] {
-      val typeTag = tag
-      val instance = inst
+      lazy val typeTag = tag
+      lazy val instance = inst
     }
 }
 
