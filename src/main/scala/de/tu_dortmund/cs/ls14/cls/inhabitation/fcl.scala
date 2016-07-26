@@ -54,13 +54,27 @@ class FiniteCombinatoryLogic(subtypes: SubtypeEnvironment, repository: Repositor
     x
   }
 
+  case class RecursiveInhabitationTarget(target: Type, skipIfUninhabited: Stream[Type] = Stream.empty)
+
+  def toRecursiveInhabitationTargets(recursiveTargets: Stream[Type]): Stream[RecursiveInhabitationTarget] = {
+    val skips = recursiveTargets.scanLeft(Stream.empty[Type]) {
+      case (skip, tgt) => skip :+ tgt
+    }
+    recursiveTargets.zip(skips).map {
+      case (tgt, skip) => RecursiveInhabitationTarget(tgt, skip)
+    }
+  }
+
+
   // Returns the new tree grammar after inhabiting target and a stream of new goals.
-  final def inhabitStep(result: TreeGrammar)(target: Type): (TreeGrammar, Stream[Type]) = {
-    debugPrint(target, ">>> Current target")
+  final def inhabitStep(result: TreeGrammar)(recTarget: RecursiveInhabitationTarget): (TreeGrammar, Stream[RecursiveInhabitationTarget]) = {
+    debugPrint(recTarget, ">>> Current target")
     debugPrint(result, ">>> Result so far")
+    val RecursiveInhabitationTarget(target, skipIfUninhabited) = recTarget
 
-    if (result.contains(target)) (result, Stream.empty) else {
-
+    if (result.contains(target)) (result, Stream.empty)
+    if (skipIfUninhabited.exists(ty => !result.contains(ty) || result(ty).isEmpty)) (result, Stream.empty)
+    else {
       result.find(kv => kv._1.isSupertype(target) && target.isSupertype(kv._1)) match {
         case Some(kv) => (result + (target -> kv._2), Stream.empty)
         case None =>
@@ -93,19 +107,20 @@ class FiniteCombinatoryLogic(subtypes: SubtypeEnvironment, repository: Repositor
             }.toSet
 
           (result + (target -> newProductions),
-            newProductions.flatMap(_._2).toStream)
+            newProductions.flatMap(tgts => toRecursiveInhabitationTargets(tgts._2.toStream)).toStream)
       }
     }
   }
 
   // Iterate inhabitStep
-  final def inhabitRec(target: Type): Stream[(TreeGrammar, Stream[Type])] = {
-    val (steps, stable) = Stream.iterate((Map.empty[Type, Set[(String, Seq[Type])]], target #:: Stream.empty))
-    {
-      case (grammar, target #:: targets) =>
-        val (newGrammar, newTargets) = inhabitStep(grammar)(target)
-        (newGrammar, targets.append(newTargets))
-    } .span(_._2.nonEmpty)
+  final def inhabitRec(target: Type): Stream[(TreeGrammar, Stream[RecursiveInhabitationTarget])] = {
+    val (steps, stable) =
+      Stream
+        .iterate((Map.empty[Type, Set[(String, Seq[Type])]], RecursiveInhabitationTarget(target) #:: Stream.empty)) {
+          case (grammar, target #:: targets) =>
+          val (newGrammar, newTargets) = inhabitStep(grammar)(target)
+          (newGrammar, targets.append(newTargets))
+        } .span(_._2.nonEmpty)
     steps :+ stable.head
   }
 
