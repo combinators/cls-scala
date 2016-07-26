@@ -1,7 +1,7 @@
 package de.tu_dortmund.cs.ls14.cls.types
 
 import org.scalatest.FunSpec
-import Type.syntax._
+import syntax._
 
 class SyntaxTest extends FunSpec {
 

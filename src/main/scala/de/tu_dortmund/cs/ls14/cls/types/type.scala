@@ -11,6 +11,7 @@ case class Constructor(name: String, arguments: Type*) extends Type {
     if (arguments.isEmpty) s"$name" else s"$name(${arguments.mkString(",")})"
   }
 }
+
 case class Intersection(sigma: Type, tau: Type) extends Type {
   def toStringPrec(prec: Int): String = {
     val interPrec = 10
@@ -40,40 +41,5 @@ case class Variable(name: String) extends Type {
   def toStringPrec(prec: Int): String = name
 }
 
-object Type {
-  trait TypeSyntax {
-    val ty: Type
-    def :&:(other: Type): Type =
-      Intersection(other, ty)
-    def =>:(other: Type): Type =
-      Arrow(other, ty)
-  }
-  trait ToTypeSyntax {
-    implicit def toTypeSyntax(fromTy: Type): TypeSyntax =
-      new TypeSyntax {
-        lazy val ty: Type = fromTy
-      }
-  }
-
-  trait ConstructorSyntax {
-    val name: Symbol
-    def apply(arg: Type, args: Type*): Constructor =
-      Constructor(name.name, arg +: args:_*)
-  }
-  trait ToConstructorSyntax extends ToTypeSyntax {
-    implicit def toConstructor(name: Symbol): Constructor =
-      Constructor(name.name)
-    implicit def toTypeSyntax(name: Symbol): TypeSyntax =
-      new TypeSyntax {
-        lazy val ty: Type = new Constructor(name.name)
-      }
-    implicit def toConstructorSyntax(fromName: Symbol): ConstructorSyntax =
-      new ConstructorSyntax {
-        lazy val name: Symbol = fromName
-      }
-  }
-
-  object syntax extends ToConstructorSyntax
-}
 
 

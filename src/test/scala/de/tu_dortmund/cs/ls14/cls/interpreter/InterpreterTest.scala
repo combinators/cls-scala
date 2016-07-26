@@ -5,7 +5,7 @@ import org.scalatest._
 
 import scala.reflect.runtime.universe.{Type => UType, _}
 import de.tu_dortmund.cs.ls14.cls.types._
-import Type.syntax._
+import syntax._
 
 
 class InterpreterTest extends FunSpec {
