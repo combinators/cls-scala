@@ -65,28 +65,29 @@ class InterpreterTest extends FunSpec {
     val h2ExpectedInfo = CombinatorInfo("h2", None, stringTag.tpe, Some('foo :&: 'bar))
 
     it(s"should include $fExpectedInfo") {
-      assert(result.combinatorComponents.values.toSet.contains(fExpectedInfo))
+      assert(result.combinatorComponents.values.toSet.exists(_ =:= fExpectedInfo))
     }
     it(s"should include $g1ExpectedInfo") {
-      assert(result.combinatorComponents.values.toSet.contains(g1ExpectedInfo))
+      assert(result.combinatorComponents.values.toSet.exists(_ =:= g1ExpectedInfo))
     }
     it(s"should include $g2ExpectedInfo") {
-      assert(result.combinatorComponents.values.toSet.contains(g2ExpectedInfo))
+      assert(result.combinatorComponents.values.toSet.exists(_ =:= g2ExpectedInfo))
     }
     it(s"should include $h1ExpectedInfo") {
-      assert(result.combinatorComponents.values.toSet.contains(h1ExpectedInfo))
+      assert(result.combinatorComponents.values.toSet.exists(_ =:= h1ExpectedInfo))
     }
     it(s"should include $h2ExpectedInfo") {
-      assert(result.combinatorComponents.values.toSet.contains(h2ExpectedInfo))
+      assert(result.combinatorComponents.values.toSet.exists(_ =:= h2ExpectedInfo))
     }
     it(s"should include nothing else") {
-      assert((result.combinatorComponents.values.toSet -
-        fExpectedInfo -
-        g1ExpectedInfo -
-        g2ExpectedInfo -
-        h1ExpectedInfo -
+      val allExpected = Set(
+        fExpectedInfo,
+        g1ExpectedInfo,
+        g2ExpectedInfo,
+        h1ExpectedInfo,
         h2ExpectedInfo
-        ).isEmpty)
+      )
+      assert(result.combinatorComponents.values.toSet.filter(p => !allExpected.exists(_ =:= p)).isEmpty)
     }
 
   }

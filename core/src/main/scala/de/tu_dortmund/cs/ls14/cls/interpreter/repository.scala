@@ -13,7 +13,17 @@ class combinator extends StaticAnnotation
 case class CombinatorInfo(name: String,
   parameters: Option[Seq[universe.Type]],
   result: universe.Type,
-  semanticType: Option[Type])
+  semanticType: Option[Type]) {
+  def =:=(other: CombinatorInfo): Boolean =
+    name == other.name &&
+    semanticType == other.semanticType &&
+    result =:= other.result &&
+      ((parameters, other.parameters) match {
+          case (None, None) => true
+          case (Some(ps), Some(otherPs)) if ps.size == otherPs.size =>
+            ps.zip(otherPs).forall(p => p._1 =:= p._2)
+        })
+}
 
 trait ReflectedRepository[A] {
   import ReflectedRepository._
@@ -35,7 +45,7 @@ trait ReflectedRepository[A] {
               throw new RuntimeException("Combinator methods cannot have type parameters")
             val (applyMethodParameters, applyMethodResult) =
               applyMethod.typeSignature match {
-                case NullaryMethodType(result) => (None, result)
+                case NullaryMethodType(result) => (None, result.dealias)
                 case MethodType(params, result) =>
                   val paramTys =
                     Some(params.map(p => {
@@ -44,9 +54,9 @@ trait ReflectedRepository[A] {
                         case TypeRef(_, sym, pTy :: Nil) if sym == byName => pTy // lazyness => T
                         case pTy => pTy
                       }
-                      paramTy
+                      paramTy.dealias
                     }))
-                  (paramTys, result)
+                  (paramTys, result.dealias)
               }
 
             val semanticType =
