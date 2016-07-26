@@ -1,21 +1,20 @@
-import java.nio.charset.Charset
-import java.nio.file.{Files, Paths}
+package inhabitation
 
-import de.tu_dortmund.cs.ls14.cls.types._
 import de.tu_dortmund.cs.ls14.cls.inhabitation._
+import de.tu_dortmund.cs.ls14.cls.interpreter.ReflectedRepository._
 import de.tu_dortmund.cs.ls14.cls.interpreter._
+import de.tu_dortmund.cs.ls14.cls.types._
+import de.tu_dortmund.cs.ls14.cls.types.syntax._
 import play.twirl.api.Html
-import syntax._
-import ReflectedRepository._
 
-object Newsticker extends App {
+object NewstickerInhabitation extends App {
 
-  val alpha = Variable("alpha")
-  val beta = Variable("beta")
+  lazy val alpha = Variable("alpha")
+  lazy val beta = Variable("beta")
 
   trait MessageRepository {
     @combinator object InhabitationRocks {
-      def apply: Html = Html("<h1>Inhabitation Rocks</h1>")
+      def apply: Html = Html("<h1>Inhabitation rocks!</h1>")
       val semanticType = 'TrueMessage
     }
     @combinator object Productive {
@@ -44,12 +43,12 @@ object Newsticker extends App {
 
   trait Repository extends MessageRepository with HeadlineRepository with UtilRepository {
     @combinator object newsticker {
-      def apply(theTitle: String, messages: List[Html]): Html = Html("") //templates.newsticker(theTitle, messages)
+      def apply(theTitle: String, messages: List[Html]): Html = views.html.newsticker(theTitle, messages)
       val semanticType = 'Headline =>: 'List('Message) :&: beta =>: 'Newsticker :&: beta
     }
   }
 
-  val semanticTaxonomy =
+  lazy val semanticTaxonomy =
     Taxonomy("Message")
       .addSubtype("TrueMessage")
       .merge(
@@ -57,7 +56,7 @@ object Newsticker extends App {
           .addSubtype("Empty")
           .addSubtype("NonEmpty")
       )
-  val kinding =
+  lazy val kinding =
     Kinding(alpha)
       .addOption('Message)
       .merge(
@@ -66,20 +65,15 @@ object Newsticker extends App {
           .addOption('NonEmpty)
       )
 
-  val Gamma = new Repository {}
-  val reflectedGamma = ReflectedRepository(Gamma)
-  val fullTaxonomy = reflectedGamma.nativeTypeTaxonomy.merge(semanticTaxonomy)
-  val algorithm = new BoundedCombinatoryLogic(kinding, new SubtypeEnvironment(fullTaxonomy), reflectedGamma.combinators)
+  kinding.underlyingMap.foreach(println)
 
-  val target = nativeTypeOf[Html] :&: 'Newsticker :&: 'NonEmpty
-  val solutions =
-    TreeGrammarEnumeration(algorithm.inhabit(target), target)
-    .map(reflectedGamma.evalInhabitant[Html](_))
+  lazy val Gamma = new Repository {}
+  lazy val reflectedGamma = ReflectedRepository(Gamma)
+  lazy val fullTaxonomy = reflectedGamma.nativeTypeTaxonomy.merge(semanticTaxonomy)
+  lazy val algorithm = new BoundedCombinatoryLogic(kinding, new SubtypeEnvironment(fullTaxonomy), reflectedGamma.combinators)
 
-  for (i <- 1 to 10) {
-    val file = Paths.get("newsticker_$i.html")
-    val content = new java.util.ArrayList[String]()
-    content.add(solutions.index(i).toString)
-    Files.write(file, content, Charset.forName("UTF-8"))
-  }
+  lazy val target = nativeTypeOf[Html] :&: 'Newsticker :&: 'NonEmpty
+  lazy val inhabitationResult = algorithm.inhabit(target)
+  lazy val solutionTrees = TreeGrammarEnumeration(inhabitationResult, target)
+  def solution(number: Int): Html = reflectedGamma.evalInhabitant[Html](solutionTrees.index(number))
 }

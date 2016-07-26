@@ -1,0 +1,2 @@
+GET   /                  controllers.Application.index()
+GET   /news/:id          controllers.Application.news(id: Int)

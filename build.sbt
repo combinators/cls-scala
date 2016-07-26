@@ -20,13 +20,15 @@ lazy val commonSettings = Seq(
   )
 )
 
-lazy val examples = (Project(id = "cls-scala-examples", base = file("./examples")))
+lazy val examples = (Project(id = "cls-scala-examples", base = file("examples")))
     .settings(commonSettings: _*)
     .enablePlugins(SbtTwirl)
+    .enablePlugins(PlayScala)
+    .disablePlugins(PlayLayoutPlugin)
     .settings(
       moduleName := "cls-scala-examples",
 
-      sourceDirectories in (Compile, TwirlKeys.compileTemplates) := (unmanagedSourceDirectories in Compile).value
+      PlayKeys.playMonitoredFiles ++= (sourceDirectories in (Compile, TwirlKeys.compileTemplates)).value
     ).dependsOn(core)
 
 lazy val core = (Project(id = "cls-scala", base = file("core")))
