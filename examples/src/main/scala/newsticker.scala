@@ -44,7 +44,7 @@ object Newsticker extends App {
 
   trait Repository extends MessageRepository with HeadlineRepository with UtilRepository {
     @combinator object newsticker {
-      def apply(theTitle: String, messages: List[Html]): Html = templates.newsticker(theTitle, messages)
+      def apply(theTitle: String, messages: List[Html]): Html = Html("") //templates.newsticker(theTitle, messages)
       val semanticType = 'Headline =>: 'List('Message) :&: beta =>: 'Newsticker :&: beta
     }
   }
@@ -72,7 +72,9 @@ object Newsticker extends App {
   val algorithm = new BoundedCombinatoryLogic(kinding, new SubtypeEnvironment(fullTaxonomy), reflectedGamma.combinators)
 
   val target = nativeTypeOf[Html] :&: 'Newsticker :&: 'NonEmpty
-  val solutions = TreeGrammarEnumeration(algorithm.inhabit(target), target)
+  val solutions =
+    TreeGrammarEnumeration(algorithm.inhabit(target), target)
+    .map(reflectedGamma.evalInhabitant[Html](_))
 
   for (i <- 1 to 10) {
     val file = Paths.get("newsticker_$i.html")

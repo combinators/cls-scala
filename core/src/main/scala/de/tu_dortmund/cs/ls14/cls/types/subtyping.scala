@@ -111,7 +111,7 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: String => Set[String]) {
     }
   }
 
-  implicit class typeRelationOf(sigma: Type) extends TypeRelationOf {
+  implicit class toTypeRelationOf(sigma: Type) extends TypeRelationOf {
     def isSupertype(tau: Type): Boolean = {
       val organizedTau = tau match {
         case Organized(paths) => paths map {
@@ -127,7 +127,7 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: String => Set[String]) {
       }
     }
     def isSubtype(tau: Type): Boolean =
-      typeRelationOf(tau).isSupertype(sigma)
+      toTypeRelationOf(tau).isSupertype(sigma)
   }
 }
 
