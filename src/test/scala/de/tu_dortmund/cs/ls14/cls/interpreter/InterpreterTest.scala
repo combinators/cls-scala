@@ -5,6 +5,7 @@ import org.scalatest._
 
 import scala.reflect.runtime.universe.{Type => UType, _}
 import de.tu_dortmund.cs.ls14.cls.types._
+import Type.syntax._
 
 
 class InterpreterTest extends FunSpec {
@@ -15,30 +16,32 @@ class InterpreterTest extends FunSpec {
   trait Repository1 {
     @combinator object f {
       def apply(x: Int, y: String): List[Super] = List.empty
-      def semanticType = Omega
+      def semanticType = Omega =>: 'bar =>: 'foo
     }
+    object foo
   }
 
   trait Repository2 {
     @combinator object g1 {
       def apply(x: Type): Type => Type = x => x
-      val semanticType = Arrow(Omega, Omega)
+      val semanticType = Omega =>: Omega
     }
     @combinator object g2 {
       def apply(x: Int, y: String): List[Sub] = List(Sub())
-      def semanticType = Omega
+      def semanticType = Omega =>: 'bar =>: 'foo
     }
-    def notACombinator(x: Int): String = "I'm not a combinator"
+    object notACombinator {
+      def apply(x: Int): String = "I'm not a combinator"
+    }
   }
 
   class Repo extends Repository1 with Repository2 {
     @combinator object h1 {
       def apply(): Int = 42
-      def semanticType = Constructor("foo")
     }
     @combinator object h2 {
       def apply: String = "42"
-      def semanticType = Constructor("bar")
+      def semanticType = 'foo :&: 'bar
     }
     def alsoNotACombinator(): String = "I'm also not a combinator"
     val test: List[Sub] = List.empty
@@ -55,11 +58,11 @@ class InterpreterTest extends FunSpec {
     val typeTag: WeakTypeTag[Type] = implicitly
     val typeTypeTag: WeakTypeTag[Type => Type] = implicitly
 
-    val fExpectedInfo = CombinatorInfo("f", Some(List(intTag.tpe, stringTag.tpe)), listSuperTag.tpe, Omega)
-    val g1ExpectedInfo = CombinatorInfo("g1", Some(List(typeTag.tpe)), typeTypeTag.tpe, Arrow(Omega, Omega))
-    val g2ExpectedInfo = CombinatorInfo("g2", Some(List(intTag.tpe, stringTag.tpe)), listSubTag.tpe, Omega)
-    val h1ExpectedInfo = CombinatorInfo("h1", Some(List()), intTag.tpe, Constructor("foo"))
-    val h2ExpectedInfo = CombinatorInfo("h2", None, stringTag.tpe, Constructor("bar"))
+    val fExpectedInfo = CombinatorInfo("f", Some(List(intTag.tpe, stringTag.tpe)), listSuperTag.tpe, Some(Omega =>: 'bar =>: 'foo))
+    val g1ExpectedInfo = CombinatorInfo("g1", Some(List(typeTag.tpe)), typeTypeTag.tpe, Some(Omega =>: Omega))
+    val g2ExpectedInfo = CombinatorInfo("g2", Some(List(intTag.tpe, stringTag.tpe)), listSubTag.tpe, Some(Omega =>: 'bar =>: 'foo))
+    val h1ExpectedInfo = CombinatorInfo("h1", Some(List()), intTag.tpe, None)
+    val h2ExpectedInfo = CombinatorInfo("h2", None, stringTag.tpe, Some('foo :&: 'bar))
 
     it(s"should include $fExpectedInfo") {
       assert(result.combinatorComponents.values.toSet.contains(fExpectedInfo))
@@ -102,9 +105,9 @@ class InterpreterTest extends FunSpec {
   val fTree = Tree("f", Tree("h1"), Tree("h2"))
   val g2Tree = Tree("g2", Tree("h1"), Tree("h2"))
 
-  describe("when used for inhabitation of List[Super]") {
+  describe("when used for inhabitation of List[Super] :&: 'foo") {
     val logic = new FiniteCombinatoryLogic(SubtypeEnvironment(result.nativeTypeTaxonomy), result.combinators)
-    val target = ReflectedRepository.nativeTypeOf[List[Super]]
+    val target = ReflectedRepository.nativeTypeOf[List[Super]] :&: 'foo
     val grammar = logic.inhabit(target)
     val inhabitants = TreeGrammarEnumeration(grammar, target)
     it("should yield $fTree and $g2Tree") {

@@ -1,7 +1,7 @@
 package de.tu_dortmund.cs.ls14.cls.interpreter
 
 import de.tu_dortmund.cs.ls14.cls.inhabitation.Tree
-import de.tu_dortmund.cs.ls14.cls.types.{Arrow, Constructor, Taxonomy, Type}
+import de.tu_dortmund.cs.ls14.cls.types.{Type, _}
 
 import scala.annotation.StaticAnnotation
 import scala.reflect.runtime.universe
@@ -13,7 +13,7 @@ class combinator extends StaticAnnotation
 case class CombinatorInfo(name: String,
   parameters: Option[Seq[universe.Type]],
   result: universe.Type,
-  semanticType: Type)
+  semanticType: Option[Type])
 
 trait ReflectedRepository[A] {
   import ReflectedRepository._
@@ -37,12 +37,20 @@ trait ReflectedRepository[A] {
                 case MethodType(params, result) => (Some(params.map(p => p.info)), result)
               }
             val semanticType =
-              tb.eval(
-                q"""${reify(instance).in(tb.mirror)}
-                      .asInstanceOf[${typeTag.tpe}]
-                      .${TermName(combinatorName)}
-                      .semanticType"""
-              ).asInstanceOf[Type]
+              member
+                .typeSignature
+                .members
+                .find(m => m.name.toString == "semanticType")
+                .map(semType =>
+                  tb.eval(
+                    q"""import de.tu_dortmund.cs.ls14.cls.types.Type;
+                        import de.tu_dortmund.cs.ls14.cls.types.Type.syntax._;
+                        identity[Type](
+                          ${reify(instance).in(tb.mirror)}
+                            .asInstanceOf[${typeTag.tpe}]
+                            .${TermName(combinatorName)}
+                            .semanticType)"""
+                    ).asInstanceOf[Type])
             Seq(CombinatorInfo(combinatorName, applyMethodParameters, applyMethodResult, semanticType))
           case (s, _) => s
         }
@@ -59,7 +67,11 @@ trait ReflectedRepository[A] {
 
   lazy val combinators: Map[String, Type] =
     combinatorComponents
-      .mapValues(combinatorInfo => nativeTypeOf(combinatorInfo))
+      .mapValues(combinatorInfo =>
+        combinatorInfo.semanticType match {
+          case None => nativeTypeOf (combinatorInfo)
+          case Some(semTy) => Intersection(nativeTypeOf(combinatorInfo), semTy)
+        })
 
   lazy val nativeTypeTaxonomy: Taxonomy = {
     val (taxonomyStatement, _) =
