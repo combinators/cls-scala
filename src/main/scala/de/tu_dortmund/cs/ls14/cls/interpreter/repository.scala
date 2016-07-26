@@ -57,7 +57,7 @@ trait ReflectedRepository[A] {
                 .map(semType =>
                   tb.eval(
                     q"""import de.tu_dortmund.cs.ls14.cls.types.Type;
-                        import de.tu_dortmund.cs.ls14.cls.types.Type.syntax._;
+                        import de.tu_dortmund.cs.ls14.cls.types.syntax._;
                         identity[Type](
                           ${reify(instance).in(tb.mirror)}
                             .asInstanceOf[${typeTag.tpe}]
