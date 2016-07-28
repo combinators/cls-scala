@@ -1,54 +1,35 @@
 package de.tu_dortmund.cs.ls14.cls.interpreter
 
 import de.tu_dortmund.cs.ls14.cls.types.Taxonomy
-
+import ReflectedRepository._
 import scala.reflect.runtime.universe._
 
-case class TypeRelation(superType: Type, subType: Type)
+class NativeTaxonomyBuilder(types: Set[Type] = Set.empty) {
 
-trait NativeTaxonomy[A, B] {
-  val taxonomy: Taxonomy
-}
+  def addNativeTypes(tys: Set[Type]): NativeTaxonomyBuilder =
+    new NativeTaxonomyBuilder(types.union(tys))
 
-trait Unrelated {
-  implicit def inferUnrelatedTaxonomy[A, B](implicit
-    aTag: WeakTypeTag[A],
-    bTag: WeakTypeTag[B]
-  ): NativeTaxonomy[A, B] =
-    new NativeTaxonomy[A, B] {
-      lazy val taxonomy =
-        Taxonomy(ReflectedRepository.nativeTypeOf[A].name)
-          .merge(Taxonomy(ReflectedRepository.nativeTypeOf[B].name))
-    }
-}
+  def addNativeType(ty: Type): NativeTaxonomyBuilder =
+    addNativeTypes(Set(ty))
 
-trait SubtypeRelated extends Unrelated {
-  implicit def inferSubtypeTaxonomy[A, B <: A](implicit
-    aTag: WeakTypeTag[A],
-    bTag: WeakTypeTag[B]
-  ): NativeTaxonomy[A, B] =
-    new NativeTaxonomy[A, B] {
-      lazy val taxonomy =
-        Taxonomy(ReflectedRepository.nativeTypeOf[A].name)
-          .addSubtype(ReflectedRepository.nativeTypeOf[B].name)
-    }
-}
+  def addNativeType[A](implicit aTag: WeakTypeTag[A]): NativeTaxonomyBuilder =
+    addNativeType(aTag.tpe)
 
-trait SupertypeRelated extends SubtypeRelated {
-  implicit def inferSupertypeTaxonomy[A, B <: A](implicit
-    aTag: WeakTypeTag[A],
-    bTag: WeakTypeTag[B],
-    inverseTaxonomy: NativeTaxonomy[B, A]
-  ): NativeTaxonomy[B, A] =
-    new NativeTaxonomy[B, A] {
-      lazy val taxonomy =
-        Taxonomy(ReflectedRepository.nativeTypeOf[A].name)
-          .addSubtype(ReflectedRepository.nativeTypeOf[B].name)
-          .merge(inverseTaxonomy.taxonomy)
-    }
-}
+  def taxonomy: Taxonomy = {
+    def addTypeIfLte(taxonomy: Taxonomy, supertype: Type, subtype: Type) =
+      if (subtype <:< supertype)
+        taxonomy.merge(Taxonomy(nativeTypeOf(supertype).name).addSubtype(nativeTypeOf(subtype).name))
+      else taxonomy
 
-object NativeTaxonomy extends SupertypeRelated {
-  def apply[A, B](implicit nativeTaxonomy: NativeTaxonomy[A, B]): Taxonomy = nativeTaxonomy.taxonomy
+    types.foldLeft((Taxonomy.empty, Set.empty[Type])) {
+      case ((taxonomy, inserted), ty) =>
+        val tyName = nativeTypeOf(ty).name
+        val newTaxonomy = inserted.foldLeft(taxonomy) {
+          case (newTaxonomy, otherType) =>
+            addTypeIfLte(addTypeIfLte(newTaxonomy, ty, otherType), otherType, ty)
+        }
+        (newTaxonomy, inserted + ty)
+    }._1
+  }
 }
 

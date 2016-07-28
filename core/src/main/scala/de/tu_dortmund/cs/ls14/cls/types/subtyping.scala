@@ -131,18 +131,30 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: String => Set[String]) {
   }
 }
 
-sealed trait Taxonomy extends (String => Set[String]) { self =>
+
+
+sealed trait Taxonomy extends (String => Set[String]) {
+  val underlyingMap: Map[String, Set[String]]
+
+  def merge(other: Taxonomy): Taxonomy
+  def merge(other: NonEmptyTaxonomy): NonEmptyTaxonomy
+
+  def apply(s: String): Set[String] = underlyingMap.getOrElse(s, Set.empty)
+}
+
+
+sealed trait NonEmptyTaxonomy extends Taxonomy { self =>
   val underlyingMap: Map[String, Set[String]]
   protected val head: String
 
-  def addSubtype(entry: String): Taxonomy =
-    new Taxonomy {
+  def addSubtype(entry: String): NonEmptyTaxonomy =
+    new NonEmptyTaxonomy {
       val underlyingMap = self.underlyingMap.updated(self.head, self(self.head) + entry)
       val head: String = self.head
     }
 
-  def addSubtypes(entries: Taxonomy): Taxonomy =
-    new Taxonomy {
+  def addSubtypes(entries: NonEmptyTaxonomy): NonEmptyTaxonomy =
+    new NonEmptyTaxonomy {
       val underlyingMap =
         self
           .merge(entries)
@@ -151,21 +163,29 @@ sealed trait Taxonomy extends (String => Set[String]) { self =>
       val head: String = self.head
     }
 
-  def merge(entries: Taxonomy): Taxonomy =
-    new Taxonomy {
+  override def merge(entries: Taxonomy): NonEmptyTaxonomy =
+    new NonEmptyTaxonomy {
       val underlyingMap =
         entries.underlyingMap.foldLeft(self.underlyingMap) {
           case (m, (k, v)) => m.updated(k, m.getOrElse(k, Set.empty) ++ v)
         }
       val head: String = self.head
     }
-
-  def apply(s: String): Set[String] = underlyingMap.getOrElse(s, Set.empty)
+  override def merge(entries: NonEmptyTaxonomy): NonEmptyTaxonomy =
+    merge(entries.asInstanceOf[Taxonomy])
 }
 
 object Taxonomy {
-  def apply(superType: String) = new Taxonomy {
-    val underlyingMap: Map[String, Set[String]] = Map.empty
-    val head: String = superType
-  }
+  def apply(superType: String): NonEmptyTaxonomy =
+    new NonEmptyTaxonomy {
+      val underlyingMap: Map[String, Set[String]] = Map.empty
+      val head: String = superType
+    }
+  def empty: Taxonomy =
+    new Taxonomy {
+      val underlyingMap: Map[String, Set[String]] = Map.empty
+
+      override def merge(other: Taxonomy) = other
+      override def merge(other: NonEmptyTaxonomy) = other
+    }
 }

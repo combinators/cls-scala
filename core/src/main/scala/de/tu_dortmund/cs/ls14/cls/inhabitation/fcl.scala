@@ -159,3 +159,10 @@ class FiniteCombinatoryLogic(subtypes: SubtypeEnvironment, repository: Repositor
     }
   }
 }
+
+object FiniteCombinatoryLogic {
+  def algorithm: InhabitationAlgorithm = {
+    case (_, subtypes, repository) =>
+      target => new FiniteCombinatoryLogic(subtypes, repository).inhabit(target)
+  }
+}

@@ -1,6 +1,6 @@
 package de.tu_dortmund.cs.ls14.cls.interpreter
 
-import de.tu_dortmund.cs.ls14.cls.inhabitation.Tree
+import de.tu_dortmund.cs.ls14.cls.inhabitation.{BoundedCombinatoryLogic, InhabitationAlgorithm, Tree, TreeGrammar, TreeGrammarEnumeration}
 import de.tu_dortmund.cs.ls14.cls.types.{Type, _}
 
 import scala.annotation.StaticAnnotation
@@ -25,6 +25,11 @@ case class CombinatorInfo(name: String,
         })
 }
 
+case class InhabitationResult[T](grammar: TreeGrammar, target: Type, resultInterpreter: Tree => T) {
+  val terms = TreeGrammarEnumeration(grammar, target)
+  val interpretedTerms = terms.map(resultInterpreter)
+}
+
 trait ReflectedRepository[A] {
   import ReflectedRepository._
   import scala.reflect.runtime.currentMirror
@@ -32,6 +37,10 @@ trait ReflectedRepository[A] {
 
   val typeTag: WeakTypeTag[A]
   val instance: A
+  val semanticTaxonomy: Taxonomy
+  val kinding: Kinding
+  val algorithm: InhabitationAlgorithm
+
 
   private lazy val tb = currentMirror.mkToolBox()
 
@@ -96,24 +105,8 @@ trait ReflectedRepository[A] {
           case Some(semTy) => Intersection(nativeTypeOf(combinatorInfo), semTy)
         })
 
-  lazy val nativeTypeTaxonomy: Taxonomy = {
-    val (taxonomyStatement, _) =
-      scalaTypes.foldLeft(
-        (q"Taxonomy(${nativeTypeOf[Any].name})",
-          Set.empty[universe.Type])
-      ){ case ((stmt, tys), ty) =>
-        val newStmt =
-          tys.foldLeft(stmt){ case (newStmt, otherTy) =>
-            q"${newStmt}.merge(NativeTaxonomy[${ty}, ${otherTy}])"
-          }
-        (newStmt, tys + ty)
-      }
-    tb.eval(q"""{
-      import de.tu_dortmund.cs.ls14.cls.interpreter.NativeTaxonomy;
-      import de.tu_dortmund.cs.ls14.cls.types.Taxonomy;
-      $taxonomyStatement
-      }""").asInstanceOf[Taxonomy]
-  }
+  lazy val nativeTypeTaxonomy: NativeTaxonomyBuilder =
+    new NativeTaxonomyBuilder(scalaTypes)
 
   def evalInhabitant[A](inhabitant: Tree): A = {
     val instanceTerm = q"${reify(instance).in(tb.mirror)}.asInstanceOf[${typeTag.tpe}]"
@@ -132,6 +125,14 @@ trait ReflectedRepository[A] {
     tb.eval(constructTerm(inhabitant)).asInstanceOf[A]
   }
 
+
+  def inhabit[T](semanticTypes: Type*)(implicit targetTag: WeakTypeTag[T]): InhabitationResult[T] = {
+    val fullTaxonomy = nativeTypeTaxonomy.addNativeType[T].taxonomy.merge(semanticTaxonomy)
+    val targetTypes = nativeTypeOf[T] +: semanticTypes
+    val targetType = targetTypes.init.foldRight(targetTypes.last){ case (ty, tgt) => Intersection(ty, tgt) }
+    val result = algorithm(kinding, SubtypeEnvironment(semanticTaxonomy), combinators)(targetType)
+    InhabitationResult(result, targetType, evalInhabitant[T])
+  }
 }
 
 object ReflectedRepository {
@@ -150,11 +151,22 @@ object ReflectedRepository {
         case (parameter, result) => Arrow(parameter, result)
       }
 
-  def apply[R](inst: R)(implicit tag: WeakTypeTag[R]): ReflectedRepository[R] =
+  def apply[R](inst: R,
+    semanticTaxonomy: Taxonomy = Taxonomy.empty,
+    kinding: Kinding = Kinding.empty,
+    algorithm : InhabitationAlgorithm = BoundedCombinatoryLogic.algorithm
+  )(implicit tag: WeakTypeTag[R]): ReflectedRepository[R] = {
+    val algo = algorithm
+    val semTax = semanticTaxonomy
+    val knd = kinding
     new ReflectedRepository[R] {
       lazy val typeTag = tag
       lazy val instance = inst
+      lazy val semanticTaxonomy = semTax
+      lazy val kinding = knd
+      lazy val algorithm = algo
     }
+  }
 }
 
 

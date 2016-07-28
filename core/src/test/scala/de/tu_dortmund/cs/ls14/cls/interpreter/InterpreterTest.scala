@@ -10,7 +10,8 @@ import syntax._
 
 class InterpreterTest extends FunSpec {
 
-  trait Super
+  trait Top
+  trait Super extends Top
   case class Sub() extends Super
 
   trait Repository1 {
@@ -97,7 +98,7 @@ class InterpreterTest extends FunSpec {
       it("should include List[Sub]") {
         assert(
           result
-            .nativeTypeTaxonomy(ReflectedRepository.nativeTypeOf[List[Super]].name)
+            .nativeTypeTaxonomy.taxonomy(ReflectedRepository.nativeTypeOf[List[Super]].name)
             .contains(ReflectedRepository.nativeTypeOf[List[Super]].name))
       }
     }
@@ -106,11 +107,8 @@ class InterpreterTest extends FunSpec {
   val fTree = Tree("f", Tree("h1"), Tree("h2"))
   val g2Tree = Tree("g2", Tree("h1"), Tree("h2"))
 
-  describe("when used for inhabitation of List[Super] :&: 'foo") {
-    val logic = new FiniteCombinatoryLogic(SubtypeEnvironment(result.nativeTypeTaxonomy), result.combinators)
-    val target = ReflectedRepository.nativeTypeOf[List[Super]] :&: 'foo
-    val grammar = logic.inhabit(target)
-    val inhabitants = TreeGrammarEnumeration(grammar, target)
+  describe("when used for inhabitation of List[Top] :&: 'foo") {
+    val inhabitants = result.inhabit[List[Top]]('foo).terms
     it("should yield $fTree and $g2Tree") {
       assert(inhabitants.values.flatMap(_._2).forall(tree => tree == fTree || tree == g2Tree))
     }
@@ -128,7 +126,4 @@ class InterpreterTest extends FunSpec {
       }
     }
   }
-
-
-
 }

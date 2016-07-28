@@ -20,11 +20,13 @@ class BCLTest extends FunSpec {
     )
 
   val taxonomy =
-    Taxonomy("Char")
-      .addSubtype("Int")
+    Taxonomy
+      .empty
+      .merge(Taxonomy("Char")
+              .addSubtype("Int"))
       .merge(Taxonomy("String"))
 
-  def addAll(k: Kinding): Kinding =
+  def addAll(k: NonEmptyKinding): NonEmptyKinding =
     k.addOption(Constructor("Char"))
      .addOption(Constructor("Int"))
      .addOption(Constructor("String"))

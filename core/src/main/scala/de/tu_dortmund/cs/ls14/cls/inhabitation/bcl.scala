@@ -10,9 +10,12 @@ class BoundedCombinatoryLogic(kinding: Kinding, subtypes: SubtypeEnvironment, Ga
     lazy val varMappings = kinding.underlyingMap.toStream.map {
       case (v, e) => e.map((v -> _))
     }
-    varMappings.tail.foldLeft(varMappings.headOption.getOrElse(Enumeration.empty).map(Map(_))) {
-      case (substs, e) => substs.product(e).map {
-        case (subst, vt) => subst + vt
+    if (varMappings.isEmpty) Enumeration.empty
+    else {
+      varMappings.tail.foldLeft(varMappings.headOption.getOrElse(Enumeration.empty).map(Map(_))) {
+        case (substs, e) => substs.product(e).map {
+          case (subst, vt) => subst + vt
+        }
       }
     }
   }
@@ -33,7 +36,8 @@ class BoundedCombinatoryLogic(kinding: Kinding, subtypes: SubtypeEnvironment, Ga
   }
 
   private def blowUp(sigma: => Type): Enumeration[Stream[Type with Path]] =
-    substitutions.map { s => applySubst(s)(sigma) match { case Organized(ps) => ps.toStream } }
+    if (substitutions.values.isEmpty) Enumeration.singleton(sigma match { case Organized(ps) => ps.toStream })
+    else substitutions.map { s => applySubst(s)(sigma) match { case Organized(ps) => ps.toStream } }
 
   private def blowUp(Gamma: => Repository): Repository = {
     Gamma.mapValues { case ty =>
@@ -51,4 +55,12 @@ class BoundedCombinatoryLogic(kinding: Kinding, subtypes: SubtypeEnvironment, Ga
 
   def inhabit(target: Type): TreeGrammar =
     algorithm.inhabit(target)
+}
+
+
+object BoundedCombinatoryLogic {
+  def algorithm: InhabitationAlgorithm = {
+    case (kinding, subtypes, repository) =>
+      target => new BoundedCombinatoryLogic(kinding, subtypes, repository).inhabit(target)
+  }
 }
