@@ -4,7 +4,7 @@ import de.tu_dortmund.cs.ls14.cls.types._
 
 import scala.annotation.tailrec
 
-class FiniteCombinatoryLogic(subtypes: SubtypeEnvironment, repository: Repository) {
+class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: Repository) {
   import subtypes._
 
   private val organizedRepository = repository.mapValues {
