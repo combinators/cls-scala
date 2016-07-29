@@ -65,6 +65,24 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     }
   }
 
+  final def substituteArguments(grammar: TreeGrammar, oldType: Type, newType: Type): TreeGrammar =
+    grammar
+      .mapValues(entries =>
+        entries.map {
+          case (c, tgts) => (c, tgts.map(tgt => if (tgt == oldType) newType else tgt))
+        })
+
+  final def findEqualEntry(grammar: TreeGrammar, ty: Type): Option[(Type, Set[(String, Seq[Type])])] =
+    grammar.find {
+      case (k, v) => k.isSupertype(ty) && k.isSubtype(ty)
+    }
+
+  final def equalEtryIsEmptyOrNotPresent(grammar: TreeGrammar, ty: Type): Boolean =
+    findEqualEntry(grammar, ty) match {
+      case None => true
+      case Some((_, xs)) => xs.isEmpty
+    }
+
 
   // Returns the new tree grammar after inhabiting target and a stream of new goals.
   final def inhabitStep(result: TreeGrammar)(recTarget: RecursiveInhabitationTarget): (TreeGrammar, Stream[RecursiveInhabitationTarget]) = {
@@ -72,11 +90,10 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     debugPrint(result, ">>> Result so far")
     val RecursiveInhabitationTarget(target, skipIfUninhabited) = recTarget
 
-    if (result.contains(target)) (result, Stream.empty)
-    if (skipIfUninhabited.exists(ty => !result.contains(ty) || result(ty).isEmpty)) (result, Stream.empty)
+    if (skipIfUninhabited.exists(ty => equalEtryIsEmptyOrNotPresent(result, ty))) (result, Stream.empty)
     else {
-      result.find(kv => kv._1.isSupertype(target) && target.isSupertype(kv._1)) match {
-        case Some(kv) => (result + (target -> kv._2), Stream.empty)
+      findEqualEntry(result, target) match {
+        case Some(kv) => (substituteArguments(result, target, kv._1), Stream.empty) // replace the target everywhere
         case None =>
           val orgTgt =
             Organized.intersect(target match {
