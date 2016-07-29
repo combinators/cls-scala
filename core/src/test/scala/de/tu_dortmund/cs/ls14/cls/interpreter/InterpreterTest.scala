@@ -99,7 +99,7 @@ class InterpreterTest extends FunSpec {
         assert(
           result
             .nativeTypeTaxonomy.taxonomy(ReflectedRepository.nativeTypeOf[List[Super]].name)
-            .contains(ReflectedRepository.nativeTypeOf[List[Super]].name))
+            .contains(ReflectedRepository.nativeTypeOf[List[Sub]].name))
       }
     }
   }

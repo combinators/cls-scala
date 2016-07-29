@@ -15,6 +15,10 @@ class NativeTaxonomyBuilderTest extends FunSpec {
   val aliasSubATypeName = ReflectedRepository.nativeTypeOf[AliasSubA].name
   val stringTypeName = ReflectedRepository.nativeTypeOf[String].name
 
+  val seqStringTypeName = ReflectedRepository.nativeTypeOf[Seq[String]].name
+  val seqSuperTypeName = ReflectedRepository.nativeTypeOf[Seq[Super]].name
+  val seqSubATypeName = ReflectedRepository.nativeTypeOf[Seq[SubA]].name
+
   val taxonomy =
     new NativeTaxonomyBuilder()
       .addNativeType[Super]
@@ -22,6 +26,9 @@ class NativeTaxonomyBuilderTest extends FunSpec {
       .addNativeType[SubB]
       .addNativeType[AliasSubA]
       .addNativeType[String]
+      .addNativeType[Seq[String]]
+      .addNativeType[Seq[Super]]
+      .addNativeType[Seq[SubA]]
       .taxonomy
 
   describe(taxonomy.underlyingMap.toString()) {
@@ -49,6 +56,15 @@ class NativeTaxonomyBuilderTest extends FunSpec {
       it("should include reflexivity of SubA and AliasSubA") {
         assert(taxonomy(subATypeName).contains(aliasSubATypeName))
         assert(taxonomy(aliasSubATypeName).contains(subATypeName))
+      }
+    }
+    describe("When asked for sequences") {
+      it("should respect covariance") {
+        assert(taxonomy(seqSuperTypeName).contains(seqSubATypeName))
+      }
+      it("should not introduce unrelated subtypes") {
+        assert(taxonomy(seqStringTypeName).isEmpty)
+        assert(!taxonomy(seqSuperTypeName).contains(seqStringTypeName))
       }
     }
   }
