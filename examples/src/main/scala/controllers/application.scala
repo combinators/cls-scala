@@ -10,7 +10,7 @@ class Application extends Controller {
   }
 
   def news(item: Int) = Action {
-    Ok(NewstickerInhabitation.solution(item))
+    Ok(NewstickerInhabitation.inhabitationResult.interpretedTerms.index(item))
   }
 
 }

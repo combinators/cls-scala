@@ -65,15 +65,7 @@ object NewstickerInhabitation extends App {
           .addOption('NonEmpty)
       )
 
-  kinding.underlyingMap.foreach(println)
-
   lazy val Gamma = new Repository {}
-  lazy val reflectedGamma = ReflectedRepository(Gamma)
-  lazy val fullTaxonomy = reflectedGamma.nativeTypeTaxonomy.merge(semanticTaxonomy)
-  lazy val algorithm = new BoundedCombinatoryLogic(kinding, new SubtypeEnvironment(fullTaxonomy), reflectedGamma.combinators)
-
-  lazy val target = nativeTypeOf[Html] :&: 'Newsticker :&: 'NonEmpty
-  lazy val inhabitationResult = algorithm.inhabit(target)
-  lazy val solutionTrees = TreeGrammarEnumeration(inhabitationResult, target)
-  def solution(number: Int): Html = reflectedGamma.evalInhabitant[Html](solutionTrees.index(number))
+  lazy val reflectedGamma = ReflectedRepository(Gamma, semanticTaxonomy, kinding)
+  lazy val inhabitationResult = reflectedGamma.inhabit[Html]('Newsticker, 'NonEmpty)
 }
