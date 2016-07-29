@@ -44,7 +44,10 @@ class BoundedCombinatoryLogic(kinding: Kinding, subtypes: SubtypeEnvironment, Ga
       val paths =
         blowUp(ty).values.foldLeft[Stream[Type with Path]](Stream.empty) {
           case (s, (_, ps)) =>
-            s.append(ps.flatten.filter(p => !s.exists(_.isSubtype(p))))
+            ps.flatten.foldLeft(s) {
+              case (newPaths, p) if !newPaths.exists(_.isSubtype(p)) => newPaths :+ p
+              case (newPaths, _) => newPaths
+            }
         }
       Organized.intersect(paths)
     }
