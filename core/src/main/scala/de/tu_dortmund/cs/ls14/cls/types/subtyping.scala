@@ -6,10 +6,10 @@ object Path {
   def unapply(t: Type): Option[(Seq[Type], Constructor with Path)] =
     t match {
       case c : Constructor with Path => Some((Seq.empty, c))
-      case c@Constructor(name) => Some((Seq.empty, new Constructor(name) with Path))
-      case c@Constructor(name, args @ _*) =>
+      case Constructor(name) => Some((Seq.empty, new Constructor(name) with Path))
+      case Constructor(name, args @ _*) =>
         args.dropWhile(_ == Omega) match {
-          case p@Path(_, _) +: rest =>
+          case Path(_, _) +: rest =>
             rest.dropWhile(_ == Omega) match {
               case Seq() => Some((Seq(), new Constructor(name, args: _*) with Path))
               case _ => None
