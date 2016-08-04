@@ -16,7 +16,7 @@ case class Intersection(sigma: Type, tau: Type) extends Type {
   def toStringPrec(prec: Int): String = {
     val interPrec = 10
     def interShowAssoc(ty: Type) = ty match {
-      case Intersection(_, _) => ty.toStringPrec(prec)
+      case Intersection(_, _) => ty.toStringPrec(interPrec)
       case _ => ty.toStringPrec(interPrec + 1)
     }
     val r = s"${interShowAssoc(sigma)} & ${interShowAssoc(tau)}"
@@ -31,7 +31,7 @@ case class Arrow(source: Type, target: Type) extends Type {
   def toStringPrec(prec: Int): String = {
     val arrowPrec = 9
     val r = target match {
-      case Arrow(_, _) => s"${source.toStringPrec(arrowPrec + 1)} -> ${target.toStringPrec(prec)}"
+      case Arrow(_, _) => s"${source.toStringPrec(arrowPrec + 1)} -> ${target.toStringPrec(arrowPrec)}"
       case _ => s"${source.toStringPrec(arrowPrec + 1)} -> ${target.toStringPrec(arrowPrec + 1)}"
     }
     if (prec > arrowPrec) parens(r) else r
