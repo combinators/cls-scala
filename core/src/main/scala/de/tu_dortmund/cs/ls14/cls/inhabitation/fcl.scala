@@ -32,6 +32,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     }
 
   private def subseqs[A](xs: Seq[A]): Seq[Seq[A]] = {
+    (1 to xs.size) flatMap (xs.combinations)
     (1 to xs.size) flatMap xs.sliding
   }
 
