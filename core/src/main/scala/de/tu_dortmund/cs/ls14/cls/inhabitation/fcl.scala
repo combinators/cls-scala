@@ -11,6 +11,10 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     case Organized(ps) => Organized.intersect(ps)
   }
 
+  /**
+    * Splits `path` into (argument, target)-pairs, relevant for inhabiting `target`.
+    * Relevant target components are path suffixes, which are supertypes of `target`.
+    */
   private def relevantFor(target: Type, path: Type with Path): Seq[(Seq[Type], Type with Path)] =
     (target, path) match {
       case (Organized(tgtPaths), Path(args, tgt)) =>
@@ -31,10 +35,10 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
             }
     }
 
-  private def subseqs[A](xs: Seq[A]): Seq[Seq[A]] = {
-    (1 to xs.size) flatMap (xs.combinations)
-  }
-
+  /**
+    * Piecewise intersection of argument types.
+    * Assumes all elements of `arguments` are of the same length.
+    */
   private def intersectArguments(arguments: Seq[Seq[Type]]): Seq[Type] =
     arguments match {
       case Seq() => Seq.empty
@@ -49,20 +53,57 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
         }
     }
 
+  /**
+    * Finds all piecewise intersections of argument sequences in `paths`, such that
+    * correspondingly intersected targets are subtypes of `tgt`.
+    * Avoids selecting redundant paths.
+    * Assumes all argument sequences in `paths` are of equal length.
+    * Example:
+    * <code>
+    * covers(tgt = A & B,
+    *        paths = (Seq(X, P), A) #:: (Seq(Y, Q), A) #:: (Seq(Z, P), B) #:: Stream.empty) ==
+    * Seq(X & Z, P) #:: Seq(Y & Z, P) #:: Stream.empty
+    * </code>
+    */
+  final def covers(tgt: Type, paths: Stream[(Seq[Type], Type with Path)]): Stream[Seq[Type]] = {
+    final case class Step(args: Seq[Seq[Type]], tgt: Type, rest: Stream[(Seq[Type], Type with Path)])
+    def coversOfStep(step: Step): (Stream[Step], Stream[Seq[Type]]) = {
+      if (step.tgt.isSubtype(tgt)) (Stream.empty, intersectArguments(step.args) #:: Stream.empty)
+      else {
+        step.rest match {
+          case (_, newTgt) #:: others if (step.tgt.isSubtype(newTgt)) =>
+            (step.copy(rest = others) #:: Stream.empty, Stream.empty)
+          case (newArgs, newTgt) #:: others =>
+            (Step(newArgs +: step.args, Intersection(newTgt, step.tgt), others) #::
+              step.copy(rest = others) #::
+              Stream.empty,
+              Stream.empty
+            )
+          case _ => (Stream.empty, Stream.empty)
+        }
+      }
+    }
+    def coversOf(currentArgs : Seq[Type], currentTgt: Type, otherPaths: Stream[(Seq[Type], Type with Path)]): Stream[Seq[Type]] = {
+      val start: (Stream[Step], Stream[Seq[Type]]) =
+        (Step(Seq(currentArgs), currentTgt, otherPaths) #:: Stream.empty[Step], Stream.empty)
+      val (iterating, stable) = Stream.iterate(start) {
+        case (steps, _) =>
+          val (newSteps, results) = steps.map(coversOfStep).unzip
+          (newSteps.flatten, results.flatten)
+      }.span(state => !state._1.isEmpty)
+
+      (stable.head +: iterating).flatMap(_._2)
+    }
+
+    val pathPairs = paths.zip(paths.tails.toStream.tail)
+    pathPairs.flatMap {
+      case ((currentArgs, currentTgt), otherPaths) => coversOf(currentArgs, currentTgt, otherPaths)
+    }
+  }
+
   private final def debugPrint[A](x: A, msg: String = ""): A = {
     //println(s"$msg : $x")
     x
-  }
-
-  case class RecursiveInhabitationTarget(target: Type, skipIfUninhabited: Stream[Type] = Stream.empty)
-
-  def toRecursiveInhabitationTargets(recursiveTargets: Stream[Type]): Stream[RecursiveInhabitationTarget] = {
-    val skips = recursiveTargets.scanLeft(Stream.empty[Type]) {
-      case (skip, tgt) => skip :+ tgt
-    }
-    recursiveTargets.zip(skips).map {
-      case (tgt, skip) => RecursiveInhabitationTarget(tgt, skip)
-    }
   }
 
   final def substituteArguments(grammar: TreeGrammar, oldType: Type, newType: Type): TreeGrammar =
@@ -83,6 +124,17 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
       case Some((_, xs)) => xs.isEmpty
     }
 
+
+  case class RecursiveInhabitationTarget(target: Type, skipIfUninhabited: Stream[Type] = Stream.empty)
+
+  def toRecursiveInhabitationTargets(recursiveTargets: Stream[Type]): Stream[RecursiveInhabitationTarget] = {
+    val skips = recursiveTargets.scanLeft(Stream.empty[Type]) {
+      case (skip, tgt) => skip :+ tgt
+    }
+    recursiveTargets.zip(skips).map {
+      case (tgt, skip) => RecursiveInhabitationTarget(tgt, skip)
+    }
+  }
 
   // Returns the new tree grammar after inhabiting target and a stream of new goals.
   final def inhabitStep(result: TreeGrammar)(recTarget: RecursiveInhabitationTarget): (TreeGrammar, Stream[RecursiveInhabitationTarget]) = {
@@ -108,23 +160,21 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
                 .flatMap(relevantFor(orgTgt, _))
                 .map(debugPrint(_, "Of those are relevant"))
                 .groupBy(x => x._1.size)
-                .mapValues { case pathComponents =>
-                  subseqs(pathComponents)
-                    .map(debugPrint(_, "path component"))
-                    .filter(components =>
-                      target.isSupertype(Organized.intersect(components.map(_._2))))
-                    .map(components => intersectArguments(components.map(_._1)))
-                }
+                .mapValues (pathComponents => covers(orgTgt, pathComponents.toStream))
                 .map(debugPrint(_, "Recursively inhabiting"))
-                .values.toSet.flatten
+                .values.flatten
             }
           val newProductions: Set[(String, Seq[Type])] =
             recursiveTargets.toSeq.flatMap { case (c, tgts) =>
               tgts.map((c, _))
             }.toSet
 
-          (result + (target -> newProductions),
-            newProductions.toStream.flatMap(tgts => toRecursiveInhabitationTargets(tgts._2.toStream)))
+          val newTargets: Stream[RecursiveInhabitationTarget] =
+            recursiveTargets.values.flatMap { case tgtss =>
+              tgtss.flatMap(tgts => toRecursiveInhabitationTargets(tgts.toStream))
+            }.toStream
+
+          (result + (target -> newProductions), newTargets)
       }
     }
   }
