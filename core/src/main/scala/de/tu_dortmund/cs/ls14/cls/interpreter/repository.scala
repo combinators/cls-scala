@@ -109,7 +109,7 @@ trait ReflectedRepository[A] {
     new NativeTaxonomyBuilder(scalaTypes)
 
   def evalInhabitant[A](inhabitant: Tree): A = {
-    val instanceTerm = q"${reify(instance).in(tb.mirror)}.asInstanceOf[${typeTag.tpe}]"
+    val instanceTerm = q"${reify(instance).in(tb.mirror)}.asInstanceOf[${typeTag.in(tb.mirror).tpe}]"
     def toTermName(name: String) =
       TermName(NameTransformer.encode(name))
     def constructTerm(inhabitant: Tree): universe.Tree =
