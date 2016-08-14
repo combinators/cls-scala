@@ -130,7 +130,7 @@ trait ReflectedRepository[A] {
     val fullTaxonomy = nativeTypeTaxonomy.addNativeType[T].taxonomy.merge(semanticTaxonomy)
     val targetTypes = nativeTypeOf[T] +: semanticTypes
     val targetType = targetTypes.init.foldRight(targetTypes.last){ case (ty, tgt) => Intersection(ty, tgt) }
-    val result = algorithm(kinding, SubtypeEnvironment(semanticTaxonomy), combinators)(targetType)
+    val result = algorithm(kinding, SubtypeEnvironment(fullTaxonomy), combinators)(targetType)
     InhabitationResult(result, targetType, evalInhabitant[T])
   }
 }
