@@ -140,7 +140,7 @@ object ReflectedRepository {
     nativeTypeOf(aTag.tpe)
 
   def nativeTypeOf(ty: universe.Type): Constructor =
-    Constructor(show(ty.dealias.dealias))
+    Constructor(show(ty.dealias))
 
   def nativeTypeOf(combinatorInfo: CombinatorInfo): Type =
     combinatorInfo.parameters
