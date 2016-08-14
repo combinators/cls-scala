@@ -144,8 +144,7 @@ object ReflectedRepository {
 
   def nativeTypeOf(combinatorInfo: CombinatorInfo): Type =
     combinatorInfo.parameters
-      .map(_.toSet)
-      .getOrElse(Set.empty)
+      .getOrElse(Seq.empty)
       .map((x: universe.Type) => nativeTypeOf(x))
       .foldRight[Type](nativeTypeOf(combinatorInfo.result)) {
         case (parameter, result) => Arrow(parameter, result)
