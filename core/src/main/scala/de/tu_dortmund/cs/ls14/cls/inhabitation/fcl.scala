@@ -124,7 +124,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
             }.toSet
 
           (result + (target -> newProductions),
-            newProductions.flatMap(tgts => toRecursiveInhabitationTargets(tgts._2.toStream)).toStream)
+            newProductions.toStream.flatMap(tgts => toRecursiveInhabitationTargets(tgts._2.toStream)))
       }
     }
   }
