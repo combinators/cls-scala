@@ -36,7 +36,19 @@ class InterpreterTest extends FunSpec {
     }
   }
 
-  class Repo extends Repository1 with Repository2 {
+  trait RepoRepeat {
+    @combinator object repeated {
+      def apply(x: Double, y: Double): Double = x + y
+      def semanticType = 'A =>: 'A =>: 'B
+    }
+    @combinator object repeatedStart {
+      def apply: Double = 42
+      val semanticType = 'A
+    }
+    val repatedTaxonomy = Taxonomy("A").addSubtype("B")
+  }
+
+  class Repo extends Repository1 with Repository2 with RepoRepeat {
     @combinator object h1 {
       def apply(): Int = 42
     }
@@ -49,10 +61,11 @@ class InterpreterTest extends FunSpec {
   }
 
   val repository = new Repo
-  val result = ReflectedRepository(repository)
+  val result = ReflectedRepository(repository, semanticTaxonomy = repository.repatedTaxonomy)
 
   describe("The reflected repository") {
     val intTag: WeakTypeTag[Int] = implicitly
+    val doubleTag: WeakTypeTag[Double] = implicitly
     val stringTag: WeakTypeTag[String] = implicitly
     val listSuperTag: WeakTypeTag[List[Super]] = implicitly
     val listSubTag: WeakTypeTag[List[Sub]] = implicitly
@@ -64,6 +77,8 @@ class InterpreterTest extends FunSpec {
     val g2ExpectedInfo = CombinatorInfo("g2", Some(List(intTag.tpe, stringTag.tpe)), listSubTag.tpe, Some(Omega =>: 'bar =>: 'foo))
     val h1ExpectedInfo = CombinatorInfo("h1", Some(List()), intTag.tpe, None)
     val h2ExpectedInfo = CombinatorInfo("h2", None, stringTag.tpe, Some('foo :&: 'bar))
+    val repeatedExpectedInfo = CombinatorInfo("repeated", Some(List(doubleTag.tpe, doubleTag.tpe)), doubleTag.tpe, Some('A =>: 'A =>: 'B))
+    val repeatedStartExpectedInfo = CombinatorInfo("repeatedStart", None, doubleTag.tpe, Some('A))
 
     it(s"should include $fExpectedInfo") {
       assert(result.combinatorComponents.values.toSet.exists(_ =:= fExpectedInfo))
@@ -80,13 +95,21 @@ class InterpreterTest extends FunSpec {
     it(s"should include $h2ExpectedInfo") {
       assert(result.combinatorComponents.values.toSet.exists(_ =:= h2ExpectedInfo))
     }
+    it(s"should include $repeatedExpectedInfo") {
+      assert(result.combinatorComponents.values.toSet.exists(_ =:= repeatedExpectedInfo))
+    }
+    it(s"should include $repeatedStartExpectedInfo") {
+      assert(result.combinatorComponents.values.toSet.exists(_ =:= repeatedStartExpectedInfo))
+    }
     it(s"should include nothing else") {
       val allExpected = Set(
         fExpectedInfo,
         g1ExpectedInfo,
         g2ExpectedInfo,
         h1ExpectedInfo,
-        h2ExpectedInfo
+        h2ExpectedInfo,
+        repeatedExpectedInfo,
+        repeatedStartExpectedInfo
       )
       assert(result.combinatorComponents.values.toSet.filter(p => !allExpected.exists(_ =:= p)).isEmpty)
     }
@@ -109,8 +132,23 @@ class InterpreterTest extends FunSpec {
 
   describe("when used for inhabitation of List[Top] :&: 'foo") {
     val inhabitants = result.inhabit[List[Top]]('foo).terms
-    it("should yield $fTree and $g2Tree") {
+    it(s"should yield $fTree and $g2Tree") {
       assert(inhabitants.values.flatMap(_._2).forall(tree => tree == fTree || tree == g2Tree))
+    }
+  }
+
+  describe("when used for inhabitation of Double :&: 'A") {
+    val inhabitants = result.inhabit[Double]('A)
+    val terms = inhabitants.interpretedTerms
+
+    it(s"should yield 42") {
+      assert(terms.values.flatMap(_._2).contains(42))
+    }
+    it("should yield 84") {
+      assert(terms.values.flatMap(_._2).contains(84))
+    }
+    it("should yield 126") {
+      assert(terms.values.flatMap(_._2).contains(126))
     }
   }
 
