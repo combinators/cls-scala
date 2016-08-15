@@ -79,7 +79,7 @@ trait ReflectedRepository[A] {
                         import de.tu_dortmund.cs.ls14.cls.types.syntax._;
                         identity[Type](
                           ${reify(instance).in(tb.mirror)}
-                            .asInstanceOf[${typeTag.tpe}]
+                            .asInstanceOf[${typeTag.in(tb.mirror).tpe}]
                             .${TermName(combinatorName)}
                             .semanticType)"""
                     ).asInstanceOf[Type])
