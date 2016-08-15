@@ -42,7 +42,7 @@ trait ReflectedRepository[A] {
   val algorithm: InhabitationAlgorithm
 
 
-  private lazy val tb = currentMirror.mkToolBox()
+  private lazy val tb = universe.runtimeMirror(instance.getClass.getClassLoader()).mkToolBox()
 
   lazy val combinatorComponents = {
     typeTag.tpe.members.flatMap (member =>
