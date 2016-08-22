@@ -14,6 +14,7 @@ object Path {
               case Seq() => Some((Seq(), new Constructor(name, args: _*) with Path))
               case _ => None
             }
+          case Seq() => Some((Seq(), new Constructor(name, args: _*) with Path))
         }
       case Arrow(src, Path(srcs, tgt)) => Some((src +: srcs, tgt))
       case _ => None
@@ -26,10 +27,20 @@ object Path {
 }
 
 object Organized {
+  private def isOmega(ty: Type): Boolean =
+    ty match {
+      case Omega => true
+      case Arrow(_, tgt) => isOmega(tgt)
+      case Intersection(l, r) => isOmega(l) && isOmega(r)
+      case _ => false
+    }
+
   def unapply(t: Type): Option[Seq[Type with Path]] =
     t match {
       case p : Path => Some(Seq(p))
       case Constructor(name) => Some(Seq(new Constructor(name) with Path))
+      case Constructor(name, args @ _ *) if args.forall(isOmega) =>
+        Some(Seq(new Constructor(name, Seq.fill(args.size)(Omega): _*) with Path))
       case Constructor(name, args @ _*) =>
         Some(
           args.zipWithIndex.flatMap {
