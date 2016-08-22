@@ -101,6 +101,18 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     }
   }
 
+  final def reduceToMinimal(paths: Stream[Type with Path]): Stream[Type with Path] = {
+    paths
+      .zip(paths.tails.toStream.tail)
+      .filterNot {
+        case (path, otherPaths) =>
+          otherPaths.exists{
+            case otherPath => otherPath.isSubtype(path)
+          }
+      }.map(_._1)
+  }
+
+
   private final def debugPrint[A](x: A, msg: String = ""): A = {
     //println(s"$msg : $x")
     x
@@ -118,7 +130,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
       case (k, v) => k.isSupertype(ty) && k.isSubtype(ty)
     }
 
-  final def equalEtryIsEmptyOrNotPresent(grammar: TreeGrammar, ty: Type): Boolean =
+  final def equalEntryIsEmptyOrNotPresent(grammar: TreeGrammar, ty: Type): Boolean =
     findEqualEntry(grammar, ty) match {
       case None => true
       case Some((_, xs)) => xs.isEmpty
@@ -142,10 +154,12 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     debugPrint(result, ">>> Result so far")
     val RecursiveInhabitationTarget(target, skipIfUninhabited) = recTarget
 
-    if (skipIfUninhabited.exists(ty => equalEtryIsEmptyOrNotPresent(result, ty))) (result, Stream.empty)
+    if (skipIfUninhabited.exists(ty => equalEntryIsEmptyOrNotPresent(result, ty))) (result, Stream.empty)
     else {
       findEqualEntry(result, target) match {
-        case Some(kv) => (substituteArguments(result, target, kv._1), Stream.empty) // replace the target everywhere
+        case Some(kv) =>
+          debugPrint(kv, ">>> Already present")
+          (substituteArguments(result, target, kv._1), Stream.empty) // replace the target everywhere
         case None =>
           val orgTgt =
             Organized.intersect(target match {
@@ -156,13 +170,13 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
             organizedRepository.mapValues { case Organized(cPaths) =>
               debugPrint(orgTgt, "Covering component")
               debugPrint(cPaths, "Using paths")
-              cPaths
+              reduceToMinimal(cPaths.toStream)
                 .flatMap(relevantFor(orgTgt, _))
                 .map(debugPrint(_, "Of those are relevant"))
                 .groupBy(x => x._1.size)
-                .mapValues (pathComponents => covers(orgTgt, pathComponents.toStream))
+                .mapValues (pathComponents => covers(orgTgt, pathComponents))
                 .map(debugPrint(_, "Recursively inhabiting"))
-                .values.flatten
+                .values.map(_.distinct).flatten
             }
           val newProductions: Set[(String, Seq[Type])] =
             recursiveTargets.toSeq.flatMap { case (c, tgts) =>
