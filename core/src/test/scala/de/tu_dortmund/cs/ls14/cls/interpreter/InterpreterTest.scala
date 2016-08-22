@@ -131,15 +131,20 @@ class InterpreterTest extends FunSpec {
   val g2Tree = Tree("g2", Tree("h1"), Tree("h2"))
 
   describe("when used for inhabitation of List[Top] :&: 'foo") {
-    val inhabitants = result.inhabit[List[Top]]('foo).terms
+    val inhabitants = result.inhabit[List[Top]]('foo)
     it(s"should yield $fTree and $g2Tree") {
-      assert(inhabitants.values.flatMap(_._2).forall(tree => tree == fTree || tree == g2Tree))
+      assert(!inhabitants.isInfinite)
+      assert(inhabitants.terms.values.flatMap(_._2).forall(tree => tree == fTree || tree == g2Tree))
     }
   }
 
   describe("when used for inhabitation of Double :&: 'A") {
     val inhabitants = result.inhabit[Double]('A)
     val terms = inhabitants.interpretedTerms
+
+    it(s"should be infinite") {
+      assert(inhabitants.isInfinite)
+    }
 
     it(s"should yield 42") {
       assert(terms.values.flatMap(_._2).contains(42))

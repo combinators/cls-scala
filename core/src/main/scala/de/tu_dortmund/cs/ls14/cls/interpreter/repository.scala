@@ -28,6 +28,19 @@ case class CombinatorInfo(name: String,
 case class InhabitationResult[T](grammar: TreeGrammar, target: Type, resultInterpreter: Tree => T) {
   val terms = TreeGrammarEnumeration(grammar, target)
   val interpretedTerms = terms.map(resultInterpreter)
+
+  def isInfinite: Boolean = {
+    def visit(seen: Set[Type], start: Type): Boolean = {
+      if (seen.contains(start)) true
+      else {
+        grammar(start).exists {
+          case (_, types) =>
+            types.exists(ty => visit(seen + start, ty))
+        }
+      }
+    }
+    visit(Set.empty, target)
+  }
 }
 
 trait ReflectedRepository[A] {
