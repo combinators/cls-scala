@@ -2,22 +2,24 @@ package de.tu_dortmund.cs.ls14.cls.inhabitation
 
 import de.tu_dortmund.cs.ls14.cls.types._
 
-import scala.annotation.tailrec
-
 class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: Repository) {
   import subtypes._
 
-  private val organizedRepository = repository.mapValues {
-    case Organized(ps) => Organized.intersect(ps)
+  private val organizedRepository: Map[String, Type with Organized] = repository.mapValues(Organized(_))
+
+  private final def debugPrint[A](x: A, msg: String = ""): A = {
+    //println(s"$msg : ${ if (x.isInstanceOf[Stream[_]]) x.asInstanceOf[Stream[_]].toList.toString else x.toString}")
+    x
   }
 
   /**
     * Splits `path` into (argument, target)-pairs, relevant for inhabiting `target`.
     * Relevant target components are path suffixes, which are supertypes of `target`.
     */
-  private def relevantFor(target: Type, path: Type with Path): Seq[(Seq[Type], Type with Path)] =
-    (target, path) match {
-      case (Organized(tgtPaths), Path(args, tgt)) =>
+  private def relevantFor(target: Type with Organized, path: Type with Organized with Path): Seq[(Seq[Type], Type with Path)] = {
+    val tgtPaths = target.paths
+    path match {
+      case Path(args, tgt) =>
         args
           .inits
           .toSeq
@@ -28,12 +30,13 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
                 case Path(tgtArgs, tgtC) =>
                   (selectedArgs.size == tgtArgs.size) &&
                     subtypes.transitiveReflexiveTaxonomicSubtypesOf(tgtC.name)(selectedC.name) &&
-                    (selectedArgs.zip(tgtArgs).forall {
+                    selectedArgs.zip(tgtArgs).forall {
                       case (selArg, tgtArg) => selArg.isSupertype(tgtArg)
-                    })
+                    }
               }
-            }
+          }
     }
+  }
 
   /**
     * Piecewise intersection of argument types.
@@ -42,12 +45,14 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
   private def intersectArguments(arguments: Seq[Seq[Type]]): Seq[Type] =
     arguments match {
       case Seq() => Seq.empty
-      case arg +: args =>
-        arguments.init.foldRight[Seq[Type]](arguments.last) {
+      case _ +: _ =>
+        val orgArguments = arguments.map(_.map(Organized(_)))
+        orgArguments.init.foldRight[Seq[Type with Organized]](orgArguments.last) {
           case (args, rs) =>
-            rs.zip(args).map { case (Organized(argPaths), r) =>
-              argPaths.foldLeft(r) { case (r, argPath) =>
-                if (argPath.isSupertype(r)) r else Intersection(argPath, r)
+            rs.zip(args).map { case (arg, r) =>
+              arg.paths.foldLeft(r) { case (intersectedArgs, argPath) =>
+                if (argPath.isSupertype(intersectedArgs)) intersectedArgs
+                else Organized.intersect(argPath +: r.paths)
               }
             }
         }
@@ -66,15 +71,15 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     * </code>
     */
   final def covers(tgt: Type, paths: Stream[(Seq[Type], Type with Path)]): Stream[Seq[Type]] = {
-    final case class Step(args: Seq[Seq[Type]], tgt: Type, rest: Stream[(Seq[Type], Type with Path)])
+    final case class Step(args: Seq[Seq[Type]], tgt: Type with Organized, rest: Stream[(Seq[Type], Type with Path)])
     def coversOfStep(step: Step): (Stream[Step], Stream[Seq[Type]]) = {
       if (step.tgt.isSubtype(tgt)) (Stream.empty, intersectArguments(step.args) #:: Stream.empty)
       else {
         step.rest match {
-          case (_, newTgt) #:: others if (step.tgt.isSubtype(newTgt)) =>
+          case (_, newTgt) #:: others if step.tgt.isSubtype(newTgt) =>
             (step.copy(rest = others) #:: Stream.empty, Stream.empty)
           case (newArgs, newTgt) #:: others =>
-            (Step(newArgs +: step.args, Intersection(newTgt, step.tgt), others) #::
+            (Step(newArgs +: step.args, Organized.intersect(newTgt +: step.tgt.paths), others) #::
               step.copy(rest = others) #::
               Stream.empty,
               Stream.empty
@@ -83,14 +88,14 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
         }
       }
     }
-    def coversOf(currentArgs : Seq[Type], currentTgt: Type, otherPaths: Stream[(Seq[Type], Type with Path)]): Stream[Seq[Type]] = {
+    def coversOf(currentArgs : Seq[Type], currentTgt: Type with Organized, otherPaths: Stream[(Seq[Type], Type with Path)]): Stream[Seq[Type]] = {
       val start: (Stream[Step], Stream[Seq[Type]]) =
         (Step(Seq(currentArgs), currentTgt, otherPaths) #:: Stream.empty[Step], Stream.empty)
       val (iterating, stable) = Stream.iterate(start) {
         case (steps, _) =>
           val (newSteps, results) = steps.map(coversOfStep).unzip
           (newSteps.flatten, results.flatten)
-      }.span(state => !state._1.isEmpty)
+      }.span(state => state._1.nonEmpty)
 
       (stable.head +: iterating).flatMap(_._2)
     }
@@ -101,23 +106,6 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     }
   }
 
-  final def reduceToMinimal(paths: Stream[Type with Path]): Stream[Type with Path] = {
-    paths
-      .zip(paths.tails.toStream.tail)
-      .filterNot {
-        case (path, otherPaths) =>
-          otherPaths.exists{
-            case otherPath => otherPath.isSubtype(path)
-          }
-      }.map(_._1)
-  }
-
-
-  private final def debugPrint[A](x: A, msg: String = ""): A = {
-    //println(s"$msg : $x")
-    x
-  }
-
   final def substituteArguments(grammar: TreeGrammar, oldType: Type, newType: Type): TreeGrammar =
     grammar
       .mapValues(entries =>
@@ -125,52 +113,40 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
           case (c, tgts) => (c, tgts.map(tgt => if (tgt == oldType) newType else tgt))
         })
 
-  final def findEqualEntry(grammar: TreeGrammar, ty: Type): Option[(Type, Set[(String, Seq[Type])])] =
+  final def removeEntriesWithArgument(grammar: TreeGrammar, arg: Type): TreeGrammar =
+    grammar.mapValues(entries => entries.filterNot(_._2.contains(arg)))
+
+
+  final def findSupertypeEntries(grammar: TreeGrammar, ty: Type): TreeGrammar =
+    grammar.filter {
+      case (k, _) => k.isSupertype(ty)
+    }
+
+  final def findSmallerEntry(grammar: TreeGrammar, ty: Type): Option[(Type, Set[(String, Seq[Type])])] =
     grammar.find {
-      case (k, v) => k.isSupertype(ty) && k.isSubtype(ty)
+      case (k, _) => k.isSubtype(ty)
     }
 
-  final def equalEntryIsEmptyOrNotPresent(grammar: TreeGrammar, ty: Type): Boolean =
-    findEqualEntry(grammar, ty) match {
-      case None => true
-      case Some((_, xs)) => xs.isEmpty
-    }
-
-
-  case class RecursiveInhabitationTarget(target: Type, skipIfUninhabited: Stream[Type] = Stream.empty)
-
-  def toRecursiveInhabitationTargets(recursiveTargets: Stream[Type]): Stream[RecursiveInhabitationTarget] = {
-    val skips = recursiveTargets.scanLeft(Stream.empty[Type]) {
-      case (skip, tgt) => skip :+ tgt
-    }
-    recursiveTargets.zip(skips).map {
-      case (tgt, skip) => RecursiveInhabitationTarget(tgt, skip)
-    }
-  }
-
-  // Returns the new tree grammar after inhabiting target and a stream of new goals.
-  final def inhabitStep(result: TreeGrammar)(recTarget: RecursiveInhabitationTarget): (TreeGrammar, Stream[RecursiveInhabitationTarget]) = {
-    debugPrint(recTarget, ">>> Current target")
+  final def inhabitStep(result: TreeGrammar, tgt: Type): (TreeGrammar, Stream[Stream[Type]]) = {
+    debugPrint(tgt, ">>> Current target")
     debugPrint(result, ">>> Result so far")
-    val RecursiveInhabitationTarget(target, skipIfUninhabited) = recTarget
-
-    if (skipIfUninhabited.exists(ty => equalEntryIsEmptyOrNotPresent(result, ty))) (result, Stream.empty)
-    else {
-      findEqualEntry(result, target) match {
+    val knownSupertypes = findSupertypeEntries(result, tgt)
+    if (knownSupertypes.values.exists(Set.empty)) {
+      debugPrint(tgt, ">>> Already present and failed")
+      (removeEntriesWithArgument(result, tgt), Stream.empty)
+    } else {
+      findSmallerEntry(knownSupertypes, tgt) match {
         case Some(kv) =>
           debugPrint(kv, ">>> Already present")
-          (substituteArguments(result, target, kv._1), Stream.empty) // replace the target everywhere
+          (substituteArguments(result, tgt, kv._1), Stream.empty #:: Stream.empty) // replace the target everywhere
         case None =>
-          val orgTgt =
-            Organized.intersect(target match {
-              case Organized(paths) => paths
-            })
+          val orgTgt = Organized(tgt)
 
-          val recursiveTargets: Map[String, Iterable[Seq[Type]]] =
-            organizedRepository.mapValues { case Organized(cPaths) =>
+          val recursiveTargets =
+            organizedRepository.par.mapValues { cType =>
               debugPrint(orgTgt, "Covering component")
-              debugPrint(cPaths, "Using paths")
-              reduceToMinimal(cPaths.toStream)
+              debugPrint(cType.paths, "Using paths")
+              cType.paths
                 .flatMap(relevantFor(orgTgt, _))
                 .map(debugPrint(_, "Of those are relevant"))
                 .groupBy(x => x._1.size)
@@ -181,33 +157,52 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
           val newProductions: Set[(String, Seq[Type])] =
             recursiveTargets.toSeq.flatMap { case (c, tgts) =>
               tgts.map((c, _))
-            }.toSet
+            }.toSet.seq
 
-          val newTargets: Stream[RecursiveInhabitationTarget] =
-            recursiveTargets.values.flatMap { case tgtss =>
-              tgtss.flatMap(tgts => toRecursiveInhabitationTargets(tgts.toStream))
+          val newTargets: Stream[Stream[Type]] =
+            recursiveTargets.values.flatMap { tgtss =>
+              tgtss.toStream.map(tgts => tgts.toStream)
             }.toStream
 
-          (result + (target -> newProductions), newTargets)
+          (result + (tgt -> newProductions), newTargets)
       }
     }
   }
 
+  final def inhabitSequentially(grammar: TreeGrammar, tgts: Stream[Type]): (TreeGrammar, Stream[Stream[Type]]) = {
+    val (newGrammar, newTgts) =
+      tgts.foldLeft[(TreeGrammar, Option[Stream[Stream[Type]]])]((grammar, Some(Stream.empty))) {
+        case (s@(_, None), _) => s
+        case ((g, Some(result)), tgt) =>
+          inhabitStep(g, tgt) match {
+            case (newG, r@(_ #:: _)) => (newG, Some(result.append(r)))
+            case (newG, _) => (newG, None)
+          }
+      }
+    (newGrammar, newTgts.getOrElse(Stream.empty))
+  }
+
+  final def inhabitSequentiallyContinueIfFailing(grammar: TreeGrammar, tgts: Stream[Stream[Type]]): (TreeGrammar, Stream[Stream[Type]]) = {
+    tgts.foldLeft((grammar, Stream.empty[Stream[Type]])) {
+      case ((g, accumulatedTgts), oldTgts) =>
+        val (newGrammar, newTgts) = inhabitSequentially(g, oldTgts)
+        (newGrammar, accumulatedTgts.append(newTgts))
+    }
+  }
+
   // Iterate inhabitStep
-  final def inhabitRec(target: Type): Stream[(TreeGrammar, Stream[RecursiveInhabitationTarget])] = {
+  final def inhabitRec(target: Type): Stream[(TreeGrammar, Stream[Stream[Type]])] = {
     val (steps, stable) =
       Stream
-        .iterate((Map.empty[Type, Set[(String, Seq[Type])]], RecursiveInhabitationTarget(target) #:: Stream.empty)) {
-          case (grammar, target #:: targets) =>
-          val (newGrammar, newTargets) = inhabitStep(grammar)(target)
-          (newGrammar, targets.append(newTargets))
-        } .span(_._2.nonEmpty)
+        .iterate((Map.empty[Type, Set[(String, Seq[Type])]], (target #:: Stream.empty) #:: Stream.empty)) {
+          case (grammar, tgts) => inhabitSequentiallyContinueIfFailing(grammar, tgts)
+        }.span(_._2.nonEmpty)
     steps :+ stable.head
   }
 
-
   def inhabit(target: Type): TreeGrammar = {
-    prune(inhabitRec(target).last._1)
+    debugPrint(repository, "Repository: ")
+    prune(debugPrint(inhabitRec(target).last._1, "before pruning"))
   }
 
   final def groundTypesOf(grammar: TreeGrammar): Set[Type] = {
@@ -236,7 +231,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
         val pruned = vs.filter {
           case (_, args) => args.forall(groundTypes)
         }
-        if (pruned.isEmpty) g else (g + (k -> pruned))
+        if (pruned.isEmpty) g else g + (k -> pruned)
     }
   }
 }

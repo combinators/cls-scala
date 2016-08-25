@@ -24,8 +24,9 @@ case class Intersection(sigma: Type, tau: Type) extends Type {
   }
 
 }
-case object Omega extends Type {
+case object Omega extends Type with Organized {
   def toStringPrec(prec: Int): String = "omega"
+  val paths = Stream.empty
 }
 case class Arrow(source: Type, target: Type) extends Type {
   def toStringPrec(prec: Int): String = {

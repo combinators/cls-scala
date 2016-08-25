@@ -1,6 +1,12 @@
 package de.tu_dortmund.cs.ls14.cls.types
 
-sealed trait Path
+sealed trait Path extends Organized { self: Type =>
+  final val paths: Stream[Type with Path] = this #:: Stream.empty
+}
+
+trait Organized { self: Type =>
+  val paths: Stream[Type with Path]
+}
 
 object Path {
   def unapply(t: Type): Option[(Seq[Type], Constructor with Path)] =
@@ -21,7 +27,7 @@ object Path {
     }
 
   def apply(args: Seq[Type] = Seq.empty, target: Constructor with Path): Type with Path =
-    args.foldRight[Type with Path](target) {
+    args.foldRight[Type with Organized with Path](target) {
       case (arg, result) => new Arrow(arg, result) with Path
     }
 }
@@ -35,18 +41,21 @@ object Organized {
       case _ => false
     }
 
-  def unapply(t: Type): Option[Seq[Type with Path]] =
+  final def addPaths(xs: Seq[Type with Path], ys: Seq[Type with Path]): Seq[Type with Path] =
+    xs.toStream.append(ys.toStream)
+
+
+  final def apply(t: Type): Type with Organized =
     t match {
-      case p : Path => Some(Seq(p))
-      case Constructor(name) => Some(Seq(new Constructor(name) with Path))
+      case ot : Organized => ot
+      case Constructor(name) => new Constructor(name) with Path
       case Constructor(name, args @ _ *) if args.forall(isOmega) =>
-        Some(Seq(new Constructor(name, Seq.fill(args.size)(Omega): _*) with Path))
+        new Constructor(name, Seq.fill(args.size)(Omega): _*) with Path
       case Constructor(name, args @ _*) =>
-        Some(
-          args.zipWithIndex.flatMap {
-            case (Organized(orgArgs), argNo) =>
-              orgArgs map (orgArg => {
-                val argVect = Seq.tabulate(args.size) {
+        intersect(args.map(Organized(_)).zipWithIndex.flatMap {
+            case (orgArg, argNo) =>
+              orgArg.paths.map (orgArg => {
+                val argVect = Stream.tabulate(args.size) {
                   case n if n == argNo => orgArg
                   case _ => Omega
                 }
@@ -54,26 +63,24 @@ object Organized {
               })
           })
       case Arrow(src, tgt) =>
-        tgt match {
-          case Organized(orgTgt) => Some(orgTgt map (tgt => new Arrow(src, tgt) with Path))
-        }
+        intersect(Organized(tgt).paths map (tgt => new Arrow(src, tgt) with Path))
       case Intersection(sigma, tau) =>
-        (sigma, tau) match {
-          case (Organized(orgSigma), Organized(orgTau)) => Some(orgSigma ++ orgTau)
-        }
-      case Omega => Some(Seq.empty)
+        intersect(Organized(sigma).paths.append(Organized(tau).paths))
     }
 
-    def intersect(paths: Seq[Type with Path]): Type =
+    final def intersect(paths: Seq[Type with Organized with Path]): Type with Organized =
       paths match {
         case Seq() => Omega
         case _ =>
-          paths.init.foldRight[Type](paths.last) {
-            case (path, result) => Intersection(path, result)
+          paths.toStream.reduce[Type with Organized] {
+            case (p1, p2) => new Intersection(p1, p2) with Organized {
+              val paths = p1.paths.append(p2.paths)
+            }
           }
       }
-
 }
+
+
 
 case class SubtypeEnvironment(taxonomicSubtypesOf: String => Set[String]) {
   import scala.collection.mutable
@@ -100,22 +107,25 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: String => Set[String]) {
     private def relevant(subArgs: Seq[Type], subTgt: Constructor): Boolean =
       (subArgs.size == pathArgs.size) &&
         tgtSubs(subTgt.name) &&
-        subArgs.zip(pathArgs).forall {
+        subArgs.par.zip(pathArgs.par).forall {
           case (subArg, pathArg) => subArg.isSupertype(pathArg)
         }
 
     def isSuperTypeOf(taus: Seq[(Seq[Type], Constructor)]): Boolean = {
       taus
+        .toStream
         .filter { case (argsTau, tgtTau) => relevant(argsTau, tgtTau) } match {
           case Seq() => false
           case tauPaths =>
             tauPaths.map(_._2.arguments) match {
               case Seq() => true
               case argss@(_ +: _) =>
-                argss.init.foldRight(argss.last) { case (args, resArgs) =>
-                  resArgs.zip(args).map { case (res, arg) => Intersection(arg, res) }
-                }.zip(tgt.arguments)
-                 .forall { case (arg, tgtArg) => tgtArg.isSupertype(arg) }
+                argss.reduce[Seq[Type]] {
+                    case (args1, args2) =>
+                      args1.zip(args2).map { case (arg1, arg2) => Intersection(arg1, arg2) }
+                  }
+                .zip(tgt.arguments)
+                .forall { case (arg, tgtArg) => tgtArg.isSupertype(arg) }
             }
         }
 
@@ -124,17 +134,17 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: String => Set[String]) {
 
   implicit class toTypeRelationOf(sigma: Type) extends TypeRelationOf {
     def isSupertype(tau: Type): Boolean = {
-      val organizedTau = tau match {
-        case Organized(paths) => paths map {
+      val organizedTau =
+        Organized(tau).paths.map {
           case Path(args, tgt) => (args, tgt)
         }
-      }
-      sigma match {
-        case Organized(Seq()) => true
-        case Organized(paths) =>
+
+      Organized(sigma).paths match {
+        case paths@(_ #:: _) =>
           paths.forall {
             case Path(srcs, tgt) => new SupertypesOfPath(srcs, tgt).isSuperTypeOf(organizedTau)
           }
+        case _ => true
       }
     }
     def isSubtype(tau: Type): Boolean =

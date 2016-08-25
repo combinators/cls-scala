@@ -36,8 +36,8 @@ class BoundedCombinatoryLogic(kinding: Kinding, subtypes: SubtypeEnvironment, Ga
   }
 
   private def blowUp(sigma: => Type): Enumeration[Stream[Type with Path]] =
-    if (substitutions.values.isEmpty) Enumeration.singleton(sigma match { case Organized(ps) => ps.toStream })
-    else substitutions.map { s => applySubst(s)(sigma) match { case Organized(ps) => ps.toStream } }
+    if (substitutions.values.isEmpty) Enumeration.singleton(Organized(sigma).paths)
+    else substitutions.map { s => Organized(applySubst(s)(sigma)).paths }
 
   private def blowUp(Gamma: => Repository): Repository = {
     Gamma.mapValues { case ty =>
