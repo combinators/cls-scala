@@ -87,12 +87,12 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: String => Set[String]) {
   lazy val transitiveReflexiveTaxonomicSubtypesOf: String => Set[String] =
     new mutable.HashMap[String, Set[String]] {
       override def apply(sigma: String): Set[String] =
-        getOrElseUpdate(sigma, {
+        synchronized(getOrElseUpdate(sigma, {
           update(sigma, Set(sigma))
           taxonomicSubtypesOf(sigma).flatMap {
             case tau => transitiveReflexiveTaxonomicSubtypesOf(tau)
           } + sigma
-        })
+        }))
     }
 
 
