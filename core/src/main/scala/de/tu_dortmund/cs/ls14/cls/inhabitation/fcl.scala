@@ -17,24 +17,13 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     * Relevant target components are path suffixes, which are supertypes of `target`.
     */
   private def relevantFor(target: Type with Organized, path: Type with Organized with Path): Seq[(Seq[Type], Type with Path)] = {
-    val tgtPaths = target.paths
     path match {
       case Path(args, tgt) =>
         args
           .inits
           .toSeq
           .zip(args.tails.toSeq.reverse.map(Path(_, tgt)))
-          .filter {
-            case (_, Path(selectedArgs, selectedC)) =>
-              tgtPaths.exists {
-                case Path(tgtArgs, tgtC) =>
-                  (selectedArgs.size == tgtArgs.size) &&
-                    subtypes.transitiveReflexiveTaxonomicSubtypesOf(tgtC.name)(selectedC.name) &&
-                    selectedArgs.zip(tgtArgs).forall {
-                      case (selArg, tgtArg) => selArg.isSupertype(tgtArg)
-                    }
-              }
-          }
+          .filter { case (_, selected) => target.paths.exists(tgtP => tgtP.isSupertype(selected)) }
     }
   }
 
@@ -52,7 +41,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
             rs.zip(args).map { case (arg, r) =>
               arg.paths.foldLeft(r) { case (intersectedArgs, argPath) =>
                 if (argPath.isSupertype(intersectedArgs)) intersectedArgs
-                else Organized.intersect(argPath +: r.paths)
+                else Organized.intersect(argPath +: intersectedArgs.paths)
               }
             }
         }
@@ -73,7 +62,12 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
   final def covers(tgt: Type, paths: Stream[(Seq[Type], Type with Path)]): Stream[Seq[Type]] = {
     final case class Step(args: Seq[Seq[Type]], tgt: Type with Organized, rest: Stream[(Seq[Type], Type with Path)])
     def coversOfStep(step: Step): (Stream[Step], Stream[Seq[Type]]) = {
-      if (step.tgt.isSubtype(tgt)) (Stream.empty, intersectArguments(step.args) #:: Stream.empty)
+      if (step.tgt.isSubtype(tgt)) {
+        debugPrint(step.args, "---------------->>>> Args:")
+        debugPrint(intersectArguments(step.args), "---------------->>>> Intersected Args:")
+        debugPrint((step.tgt, tgt), "---------------->>>> Tgt (left <= right):")
+        (Stream.empty, intersectArguments(step.args) #:: Stream.empty)
+      }
       else {
         step.rest match {
           case (_, newTgt) #:: others if step.tgt.isSubtype(newTgt) =>
@@ -151,7 +145,6 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
                 .map(debugPrint(_, "Of those are relevant"))
                 .groupBy(x => x._1.size)
                 .mapValues (pathComponents => covers(orgTgt, pathComponents))
-                .map(debugPrint(_, "Recursively inhabiting"))
                 .values.map(_.distinct).flatten
             }
           val newProductions: Set[(String, Seq[Type])] =
@@ -163,6 +156,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
             recursiveTargets.values.flatMap { tgtss =>
               tgtss.toStream.map(tgts => tgts.toStream)
             }.toStream
+          newTargets.map(debugPrint(_, "Recursively inhabiting"))
 
           (result + (tgt -> newProductions), newTargets)
       }
