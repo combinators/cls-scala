@@ -40,7 +40,7 @@ lazy val core = (Project(id = "cls-scala", base = file("core")))
 
       crossScalaVersions := Seq("2.11.11", "2.12.2"),
       libraryDependencies ++= Seq(
-        "de.tu_dortmund.cs.ls14" %% "shapeless-feat" % "0.1.0",
+        "de.tu_dortmund.cs.ls14" %% "shapeless-feat" % "0.2.1",
         "org.scala-lang" % "scala-compiler" % scalaVersion.value,
         "org.scalactic" %% "scalactic" % "3.0.1",
         "org.scalatest" %% "scalatest" % "3.0.1" % "test"
