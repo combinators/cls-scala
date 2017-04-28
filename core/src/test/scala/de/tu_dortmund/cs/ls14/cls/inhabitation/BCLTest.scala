@@ -34,7 +34,7 @@ class BCLTest extends FunSpec {
   val kinding =
     addAll(Kinding(Variable("alpha"))).merge(addAll(Kinding(Variable("beta"))))
 
-  val Gamma = new BoundedCombinatoryLogic(kinding, SubtypeEnvironment(taxonomy), mapTest)
+  val Gamma = new BoundedCombinatoryLogic(kinding, SubtypeEnvironment(taxonomy.underlyingMap), mapTest)
 
   describe(Gamma.toString) {
     describe("|- ? : String") {

@@ -23,7 +23,7 @@ class FCLTest extends FunSpec {
     Taxonomy("Char")
     .addSubtype("Int")
 
-  val Gamma = new FiniteCombinatoryLogic(SubtypeEnvironment(taxonomy), naturalNumbers)
+  val Gamma = new FiniteCombinatoryLogic(SubtypeEnvironment(taxonomy.underlyingMap), naturalNumbers)
 
   describe(Gamma.toString) {
     describe("|- ? : Int") {
