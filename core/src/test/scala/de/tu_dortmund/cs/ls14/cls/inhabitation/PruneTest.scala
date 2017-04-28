@@ -31,7 +31,7 @@ class PruneTest extends FunSpec {
       .merge(Taxonomy("Garbage2"))
       .merge(Taxonomy("Goal"))
 
-  val Gamma = new FiniteCombinatoryLogic(SubtypeEnvironment(taxonomy), garbageCombinators)
+  val Gamma = new FiniteCombinatoryLogic(SubtypeEnvironment(taxonomy.underlyingMap), garbageCombinators)
 
   describe(Gamma.toString) {
     describe("|- ? : Goal") {

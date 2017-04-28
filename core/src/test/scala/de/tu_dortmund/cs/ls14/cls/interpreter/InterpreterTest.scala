@@ -7,6 +7,17 @@ import scala.reflect.runtime.universe.{Type => UType, _}
 import de.tu_dortmund.cs.ls14.cls.types._
 import syntax._
 
+class GenericId[A] {
+  def apply(x: A): A = x
+}
+class IntIdC extends GenericId[Int]
+
+trait GenericTestRepo {
+  @combinator object IntId extends IntIdC
+  @combinator object X {
+    def apply: Int = 42
+  }
+}
 
 class InterpreterTest extends FunSpec {
 
@@ -72,13 +83,13 @@ class InterpreterTest extends FunSpec {
     val typeTag: WeakTypeTag[Type] = implicitly
     val typeTypeTag: WeakTypeTag[Type => Type] = implicitly
 
-    val fExpectedInfo = CombinatorInfo("f", Some(List(intTag.tpe, stringTag.tpe)), listSuperTag.tpe, Some(Omega =>: 'bar =>: 'foo))
-    val g1ExpectedInfo = CombinatorInfo("g1", Some(List(typeTag.tpe)), typeTypeTag.tpe, Some(Omega =>: Omega))
-    val g2ExpectedInfo = CombinatorInfo("g2", Some(List(intTag.tpe, stringTag.tpe)), listSubTag.tpe, Some(Omega =>: 'bar =>: 'foo))
-    val h1ExpectedInfo = CombinatorInfo("h1", Some(List()), intTag.tpe, None)
-    val h2ExpectedInfo = CombinatorInfo("h2", None, stringTag.tpe, Some('foo :&: 'bar))
-    val repeatedExpectedInfo = CombinatorInfo("repeated", Some(List(doubleTag.tpe, doubleTag.tpe)), doubleTag.tpe, Some('A =>: 'A =>: 'B))
-    val repeatedStartExpectedInfo = CombinatorInfo("repeatedStart", None, doubleTag.tpe, Some('A))
+    val fExpectedInfo = StaticCombinatorInfo("f", Some(List(intTag.tpe, stringTag.tpe)), listSuperTag.tpe, Some(Omega =>: 'bar =>: 'foo))
+    val g1ExpectedInfo = StaticCombinatorInfo("g1", Some(List(typeTag.tpe)), typeTypeTag.tpe, Some(Omega =>: Omega))
+    val g2ExpectedInfo = StaticCombinatorInfo("g2", Some(List(intTag.tpe, stringTag.tpe)), listSubTag.tpe, Some(Omega =>: 'bar =>: 'foo))
+    val h1ExpectedInfo = StaticCombinatorInfo("h1", Some(List()), intTag.tpe, None)
+    val h2ExpectedInfo = StaticCombinatorInfo("h2", None, stringTag.tpe, Some('foo :&: 'bar))
+    val repeatedExpectedInfo = StaticCombinatorInfo("repeated", Some(List(doubleTag.tpe, doubleTag.tpe)), doubleTag.tpe, Some('A =>: 'A =>: 'B))
+    val repeatedStartExpectedInfo = StaticCombinatorInfo("repeatedStart", None, doubleTag.tpe, Some('A))
 
     it(s"should include $fExpectedInfo") {
       assert(result.combinatorComponents.values.toSet.exists(_ =:= fExpectedInfo))
@@ -169,4 +180,20 @@ class InterpreterTest extends FunSpec {
       }
     }
   }
+
+
+
+  describe("Generic Instantiation") {
+
+    val genericInstanceRepo = new GenericTestRepo {}
+    val reflectedGenericInstanceRepo = ReflectedRepository[GenericTestRepo](genericInstanceRepo)
+    val intTag: WeakTypeTag[Int] = implicitly
+    val IntIdExpectedInfo = StaticCombinatorInfo("IntId", Some(List(intTag.tpe)), intTag.tpe, None)
+    it("should resolve type variables") {
+      val result = reflectedGenericInstanceRepo.combinatorComponents("IntId")
+      assert(result =:= IntIdExpectedInfo)
+    }
+
+  }
+
 }

@@ -1,5 +1,8 @@
 package de.tu_dortmund.cs.ls14.cls.types
 
+import scala.annotation.tailrec
+import scala.collection.mutable
+
 sealed trait Path extends Organized { self: Type =>
   final val paths: Stream[Type with Path] = this #:: Stream.empty
 }
@@ -82,19 +85,33 @@ object Organized {
 
 
 
-case class SubtypeEnvironment(taxonomicSubtypesOf: String => Set[String]) {
-  import scala.collection.mutable
-  lazy val transitiveReflexiveTaxonomicSubtypesOf: String => Set[String] =
-    new mutable.HashMap[String, Set[String]] {
-      override def apply(sigma: String): Set[String] =
-        synchronized(getOrElseUpdate(sigma, {
-          update(sigma, Set(sigma))
-          taxonomicSubtypesOf(sigma).flatMap {
-            case tau => transitiveReflexiveTaxonomicSubtypesOf(tau)
-          } + sigma
-        }))
-    }
+case class SubtypeEnvironment(taxonomicSubtypesOf: Map[String, Set[String]]) {
 
+  final private def transitiveClosureStep(state: Map[String, Set[String]]): (Boolean, Map[String, Set[String]]) = {
+    state.foldLeft((false, state)) {
+      case ((hasChanged, newState), (sigma, currentSubtypes)) =>
+        val recursiveSubtypes = currentSubtypes.flatMap(state.getOrElse(_, Set.empty))
+        val newSubtypes = currentSubtypes.union(recursiveSubtypes)
+        val changedNow = currentSubtypes.size != newSubtypes.size
+        if (changedNow) (true, newState + (sigma -> newSubtypes))
+        else (hasChanged, newState)
+    }
+  }
+
+  final private def reflexiveClosure(state: Map[String, Set[String]]): Map[String, Set[String]] =
+    state.map {
+      case (sigma, taus) => (sigma, taus + sigma)
+    }.withDefault(x => Set(x))
+
+  lazy private val closedEnvironment: Map[String, Set[String]] =
+    reflexiveClosure(
+      Stream.iterate[(Boolean, Map[String, Set[String]])]((true, taxonomicSubtypesOf))(x => transitiveClosureStep(x._2))
+        .dropWhile(_._1)
+        .head
+        ._2)
+
+
+  lazy val transitiveReflexiveTaxonomicSubtypesOf: String => Set[String] = closedEnvironment.apply
 
   sealed trait TypeRelationOf {
     def isSupertype(tau: Type): Boolean

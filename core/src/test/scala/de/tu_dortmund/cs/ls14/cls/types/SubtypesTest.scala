@@ -3,7 +3,7 @@ package de.tu_dortmund.cs.ls14.cls.types
 import org.scalatest.FunSpec
 
 class SubtypesTest extends FunSpec {
-  val onlyInt = SubtypeEnvironment(Taxonomy("Int"))
+  val onlyInt = SubtypeEnvironment(Taxonomy("Int").underlyingMap)
   describe("The environment only containing Int") {
     import onlyInt._
     it ("Should validate Int <= Int") {
