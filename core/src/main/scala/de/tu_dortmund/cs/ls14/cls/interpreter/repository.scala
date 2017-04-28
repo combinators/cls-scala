@@ -85,7 +85,7 @@ trait ReflectedRepository[A] { self =>
     val applyMethod = applyMember.asMethod
     if (applyMethod.typeParams.nonEmpty)
       throw new RuntimeException("Combinator methods cannot have type parameters")
-    applyMethod.typeSignature match {
+    applyMethod.typeSignatureIn(typeSignature) match {
         case NullaryMethodType(result) => (None, result.dealias)
         case MethodType(params, result) =>
           val paramTys =

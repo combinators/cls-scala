@@ -188,7 +188,7 @@ class InterpreterTest extends FunSpec {
     val genericInstanceRepo = new GenericTestRepo {}
     val reflectedGenericInstanceRepo = ReflectedRepository[GenericTestRepo](genericInstanceRepo)
     val intTag: WeakTypeTag[Int] = implicitly
-    val IntIdExpectedInfo = CombinatorInfo("IntId", Some(List(intTag.tpe)), intTag.tpe, None)
+    val IntIdExpectedInfo = StaticCombinatorInfo("IntId", Some(List(intTag.tpe)), intTag.tpe, None)
     it("should resolve type variables") {
       val result = reflectedGenericInstanceRepo.combinatorComponents("IntId")
       assert(result =:= IntIdExpectedInfo)
