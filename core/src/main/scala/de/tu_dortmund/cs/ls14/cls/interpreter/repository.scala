@@ -10,20 +10,31 @@ import scala.reflect.NameTransformer
 
 class combinator extends StaticAnnotation
 
-case class CombinatorInfo(name: String,
-  parameters: Option[Seq[universe.Type]],
-  result: universe.Type,
-  semanticType: Option[Type]) {
+sealed trait CombinatorInfo {
+  val name: String
+  val parameters: Option[Seq[universe.Type]]
+  val result: universe.Type
+  val semanticType: Option[Type]
   def =:=(other: CombinatorInfo): Boolean =
     name == other.name &&
-    semanticType == other.semanticType &&
-    result =:= other.result &&
+      semanticType == other.semanticType &&
+      result =:= other.result &&
       ((parameters, other.parameters) match {
-          case (None, None) => true
-          case (Some(ps), Some(otherPs)) if ps.size == otherPs.size =>
-            ps.zip(otherPs).forall(p => p._1 =:= p._2)
-        })
+        case (None, None) => true
+        case (Some(ps), Some(otherPs)) if ps.size == otherPs.size =>
+          ps.zip(otherPs).forall(p => p._1 =:= p._2)
+      })
 }
+case class StaticCombinatorInfo(name: String,
+  parameters: Option[Seq[universe.Type]],
+  result: universe.Type,
+  semanticType: Option[Type]) extends CombinatorInfo
+case class DynamicCombinatorInfo[A](name: String,
+  parameters: Option[Seq[universe.Type]],
+  result: universe.Type,
+  semanticType: Option[Type],
+  instance: A,
+  combinatorTypeTag: WeakTypeTag[A]) extends CombinatorInfo
 
 case class InhabitationResult[T](grammar: TreeGrammar, target: Type, resultInterpreter: Tree => T) {
   val terms = TreeGrammarEnumeration(grammar, target)
@@ -43,9 +54,9 @@ case class InhabitationResult[T](grammar: TreeGrammar, target: Type, resultInter
   }
 }
 
-trait ReflectedRepository[A] {
+trait ReflectedRepository[A] { self =>
+
   import ReflectedRepository._
-  import scala.reflect.runtime.currentMirror
   import scala.tools.reflect.ToolBox
 
   val typeTag: WeakTypeTag[A]
@@ -54,53 +65,80 @@ trait ReflectedRepository[A] {
   val kinding: Kinding
   val algorithm: InhabitationAlgorithm
 
+  protected def tb = universe.runtimeMirror(this.getClass.getClassLoader()).mkToolBox()
 
-  private lazy val tb = universe.runtimeMirror(instance.getClass.getClassLoader()).mkToolBox()
-
-  lazy val combinatorComponents = {
+  protected def findCombinatorComponents: Map[String, CombinatorInfo] = {
     typeTag.tpe.members.flatMap (member =>
         member.annotations.foldLeft[Seq[CombinatorInfo]](Seq()) {
           case (Seq(), c) if c.tree.tpe =:= universe.typeOf[combinator] =>
-            val combinatorName = member.name.toString
-            val applyMethod = member.typeSignature.member(TermName("apply")).asMethod
-            if (applyMethod.typeParams.nonEmpty)
-              throw new RuntimeException("Combinator methods cannot have type parameters")
-            val (applyMethodParameters, applyMethodResult) =
-              applyMethod.typeSignature match {
-                case NullaryMethodType(result) => (None, result.dealias)
-                case MethodType(params, result) =>
-                  val paramTys =
-                    Some(params.map(p => {
-                      val byName = definitions.ByNameParamClass
-                      val paramTy = p.info match {
-                        case TypeRef(_, sym, pTy :: Nil) if sym == byName => pTy // lazyness => T
-                        case pTy => pTy
-                      }
-                      paramTy.dealias
-                    }))
-                  (paramTys, result.dealias)
-              }
-
-            val semanticType =
-              member
-                .typeSignature
-                .members
-                .find(m => m.name.toString == "semanticType")
-                .map(semType =>
-                  tb.eval(
-                    q"""import de.tu_dortmund.cs.ls14.cls.types.Type;
-                        import de.tu_dortmund.cs.ls14.cls.types.syntax._;
-                        identity[Type](
-                          ${reify(instance).in(tb.mirror)}
-                            .asInstanceOf[${typeTag.in(tb.mirror).tpe}]
-                            .${TermName(combinatorName)}
-                            .semanticType)"""
-                    ).asInstanceOf[Type])
-            Seq(CombinatorInfo(combinatorName, applyMethodParameters, applyMethodResult, semanticType))
+            Seq(staticCombinatorInfoFor(member.name.toString, member.typeSignature))
           case (s, _) => s
         }
     ).map(cInfo => cInfo.name -> cInfo).toMap
   }
+  lazy val combinatorComponents: Map[String, CombinatorInfo] = findCombinatorComponents
+
+  def applyMethodInfoFor(typeSignature: universe.Type): (Option[Seq[universe.Type]], universe.Type) = {
+    val applyMember = typeSignature.member(TermName("apply"))
+    if (!applyMember.isMethod)
+      throw new RuntimeException("Combinators need to have an apply method")
+    val applyMethod = applyMember.asMethod
+    if (applyMethod.typeParams.nonEmpty)
+      throw new RuntimeException("Combinator methods cannot have type parameters")
+    applyMethod.typeSignature match {
+        case NullaryMethodType(result) => (None, result.dealias)
+        case MethodType(params, result) =>
+          val paramTys =
+            Some(params.map(p => {
+              val byName = definitions.ByNameParamClass
+              val paramTy = p.info match {
+                case TypeRef(_, sym, pTy :: Nil) if sym == byName => pTy // lazyness => T
+                case pTy => pTy
+              }
+              paramTy.dealias
+            }))
+          (paramTys, result.dealias)
+      }
+  }
+
+  def staticCombinatorInfoFor(combinatorName: String, typeSignature: universe.Type): StaticCombinatorInfo = {
+    val (applyMethodParameters, applyMethodResult) = applyMethodInfoFor(typeSignature)
+    val tb = this.tb
+    val semanticType =
+      typeSignature
+        .members
+        .find(m => m.name.toString == "semanticType")
+        .map(semType =>
+          tb.eval(
+            q"""import de.tu_dortmund.cs.ls14.cls.types.Type;
+                import de.tu_dortmund.cs.ls14.cls.types.syntax._;
+                identity[Type]({
+                  ${reify(instance).in(tb.mirror)}
+                    .asInstanceOf[${typeTag.in(tb.mirror).tpe}]
+                    .${TermName(NameTransformer.encode(combinatorName))}
+                    .semanticType
+                  })"""
+          ).asInstanceOf[Type])
+    StaticCombinatorInfo(combinatorName, applyMethodParameters, applyMethodResult, semanticType)
+  }
+  def dynamicCombinatorInfoFor[C](combinatorName: String, combinatorInstance: C)
+    (implicit combinatorTypeTag: WeakTypeTag[C]): DynamicCombinatorInfo[C] = {
+    val (applyMethodParameters, applyMethodResult) = applyMethodInfoFor(combinatorTypeTag.tpe)
+    val tb = this.tb
+    val semanticType =
+      combinatorTypeTag
+        .tpe
+        .members
+        .find(m => m.name.toString == "semanticType")
+        .map(semType =>
+          tb.eval(
+            q"""${reify(combinatorInstance).in(tb.mirror)}
+                  .asInstanceOf[${combinatorTypeTag.in(tb.mirror).tpe}]
+                  .semanticType"""
+          ).asInstanceOf[Type])
+    DynamicCombinatorInfo(combinatorName, applyMethodParameters, applyMethodResult, semanticType, combinatorInstance, combinatorTypeTag)
+  }
+
 
   lazy val scalaTypes: Set[universe.Type] =
     combinatorComponents.values.flatMap(combinatorInfo =>
@@ -122,18 +160,25 @@ trait ReflectedRepository[A] {
     new NativeTaxonomyBuilder(scalaTypes)
 
   def evalInhabitant[A](inhabitant: Tree): A = {
-    val instanceTerm = q"${reify(instance).in(tb.mirror)}.asInstanceOf[${typeTag.in(tb.mirror).tpe}]"
+    val tb = this.tb
     def toTermName(name: String) =
       TermName(NameTransformer.encode(name))
+    def toCombinatorInstanceTree(info: CombinatorInfo): universe.Tree =
+      info match {
+        case StaticCombinatorInfo(name, _, _, _) =>
+          q"${reify(this.instance).in(tb.mirror)}.asInstanceOf[${typeTag.in(tb.mirror).tpe}].${toTermName(name)}"
+        case DynamicCombinatorInfo(_, _, _, _, combinatorInstance, combinatorTypeTag) =>
+          q"${reify(combinatorInstance).in(tb.mirror)}.asInstanceOf[${combinatorTypeTag.in(tb.mirror).tpe}]"
+      }
     def constructTerm(inhabitant: Tree): universe.Tree =
       inhabitant match {
         case Tree(name)
           if combinatorComponents(name).parameters.isEmpty =>
-          q"$instanceTerm.${toTermName(name)}.apply"
+          q"${toCombinatorInstanceTree(combinatorComponents(name))}.apply"
         case Tree(name) =>
-          q"$instanceTerm.${toTermName(name)}()"
+          q"${toCombinatorInstanceTree(combinatorComponents(name))}()"
         case Tree(name, arguments@_*) =>
-          q"$instanceTerm.${toTermName(name)}(..${arguments.map(constructTerm)})"
+          q"${toCombinatorInstanceTree(combinatorComponents(name))}(..${arguments.map(constructTerm)})"
       }
     tb.eval(constructTerm(inhabitant)).asInstanceOf[A]
   }
@@ -145,6 +190,18 @@ trait ReflectedRepository[A] {
     val targetType = targetTypes.init.foldRight(targetTypes.last){ case (ty, tgt) => Intersection(ty, tgt) }
     val result = algorithm(kinding, SubtypeEnvironment(fullTaxonomy), combinators)(targetType)
     InhabitationResult(result, targetType, evalInhabitant[T])
+  }
+
+  def addCombinator[C](name: String, combinator: C)(implicit combinatorTag: WeakTypeTag[C]): ReflectedRepository[A] = {
+    new ReflectedRepository[A] {
+      lazy val typeTag = self.typeTag
+      lazy val instance = self.instance
+      lazy val semanticTaxonomy = self.semanticTaxonomy
+      lazy val kinding = self.kinding
+      lazy val algorithm = self.algorithm
+      override lazy val combinatorComponents: Map[String, CombinatorInfo] =
+        findCombinatorComponents + (name -> dynamicCombinatorInfoFor(name, combinator))
+    }
   }
 }
 

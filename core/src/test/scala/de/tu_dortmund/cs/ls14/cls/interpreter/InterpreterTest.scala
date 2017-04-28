@@ -72,13 +72,13 @@ class InterpreterTest extends FunSpec {
     val typeTag: WeakTypeTag[Type] = implicitly
     val typeTypeTag: WeakTypeTag[Type => Type] = implicitly
 
-    val fExpectedInfo = CombinatorInfo("f", Some(List(intTag.tpe, stringTag.tpe)), listSuperTag.tpe, Some(Omega =>: 'bar =>: 'foo))
-    val g1ExpectedInfo = CombinatorInfo("g1", Some(List(typeTag.tpe)), typeTypeTag.tpe, Some(Omega =>: Omega))
-    val g2ExpectedInfo = CombinatorInfo("g2", Some(List(intTag.tpe, stringTag.tpe)), listSubTag.tpe, Some(Omega =>: 'bar =>: 'foo))
-    val h1ExpectedInfo = CombinatorInfo("h1", Some(List()), intTag.tpe, None)
-    val h2ExpectedInfo = CombinatorInfo("h2", None, stringTag.tpe, Some('foo :&: 'bar))
-    val repeatedExpectedInfo = CombinatorInfo("repeated", Some(List(doubleTag.tpe, doubleTag.tpe)), doubleTag.tpe, Some('A =>: 'A =>: 'B))
-    val repeatedStartExpectedInfo = CombinatorInfo("repeatedStart", None, doubleTag.tpe, Some('A))
+    val fExpectedInfo = StaticCombinatorInfo("f", Some(List(intTag.tpe, stringTag.tpe)), listSuperTag.tpe, Some(Omega =>: 'bar =>: 'foo))
+    val g1ExpectedInfo = StaticCombinatorInfo("g1", Some(List(typeTag.tpe)), typeTypeTag.tpe, Some(Omega =>: Omega))
+    val g2ExpectedInfo = StaticCombinatorInfo("g2", Some(List(intTag.tpe, stringTag.tpe)), listSubTag.tpe, Some(Omega =>: 'bar =>: 'foo))
+    val h1ExpectedInfo = StaticCombinatorInfo("h1", Some(List()), intTag.tpe, None)
+    val h2ExpectedInfo = StaticCombinatorInfo("h2", None, stringTag.tpe, Some('foo :&: 'bar))
+    val repeatedExpectedInfo = StaticCombinatorInfo("repeated", Some(List(doubleTag.tpe, doubleTag.tpe)), doubleTag.tpe, Some('A =>: 'A =>: 'B))
+    val repeatedStartExpectedInfo = StaticCombinatorInfo("repeatedStart", None, doubleTag.tpe, Some('A))
 
     it(s"should include $fExpectedInfo") {
       assert(result.combinatorComponents.values.toSet.exists(_ =:= fExpectedInfo))

@@ -2,14 +2,16 @@ import sbt.Keys._
 import sbt.Resolver
 
 lazy val commonSettings = Seq(
-  version := "1.0",
+  version := "1.1.0-SNAPSHOT",
   organization := "de.tu_dortmund.cs.ls14",
 
-  scalaVersion := "2.11.8",
+  scalaVersion := "2.11.11",
 
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
-    Resolver.typesafeRepo("releases")
+    Resolver.typesafeRepo("releases"),
+    Resolver.sonatypeRepo("snapshots"),
+    Resolver.typesafeRepo("snapshots")
   ),
 
   scalacOptions ++= Seq(
@@ -36,11 +38,12 @@ lazy val core = (Project(id = "cls-scala", base = file("core")))
     .settings(
       moduleName := "cls-scala",
 
+      crossScalaVersions := Seq("2.11.11", "2.12.2"),
       libraryDependencies ++= Seq(
         "de.tu_dortmund.cs.ls14" %% "shapeless-feat" % "0.1.0",
         "org.scala-lang" % "scala-compiler" % scalaVersion.value,
-        "org.scalactic" %% "scalactic" % "2.2.6",
-        "org.scalatest" %% "scalatest" % "2.2.6" % "test"
+        "org.scalactic" %% "scalactic" % "3.0.1",
+        "org.scalatest" %% "scalatest" % "3.0.1" % "test"
       )
     )
 
