@@ -7,6 +7,17 @@ import scala.reflect.runtime.universe.{Type => UType, _}
 import de.tu_dortmund.cs.ls14.cls.types._
 import syntax._
 
+class GenericId[A] {
+  def apply(x: A): A = x
+}
+class IntIdC extends GenericId[Int]
+
+trait GenericTestRepo {
+  @combinator object IntId extends IntIdC
+  @combinator object X {
+    def apply: Int = 42
+  }
+}
 
 class InterpreterTest extends FunSpec {
 
@@ -169,4 +180,20 @@ class InterpreterTest extends FunSpec {
       }
     }
   }
+
+
+
+  describe("Generic Instantiation") {
+
+    val genericInstanceRepo = new GenericTestRepo {}
+    val reflectedGenericInstanceRepo = ReflectedRepository[GenericTestRepo](genericInstanceRepo)
+    val intTag: WeakTypeTag[Int] = implicitly
+    val IntIdExpectedInfo = CombinatorInfo("IntId", Some(List(intTag.tpe)), intTag.tpe, None)
+    it("should resolve type variables") {
+      val result = reflectedGenericInstanceRepo.combinatorComponents("IntId")
+      assert(result =:= IntIdExpectedInfo)
+    }
+
+  }
+
 }
