@@ -64,8 +64,9 @@ trait ReflectedRepository[A] { self =>
   val semanticTaxonomy: Taxonomy
   val kinding: Kinding
   val algorithm: InhabitationAlgorithm
+  val classLoader: ClassLoader
 
-  protected def tb = universe.runtimeMirror(this.getClass.getClassLoader()).mkToolBox()
+  protected def tb = universe.runtimeMirror(classLoader).mkToolBox()
 
   protected def findCombinatorComponents: Map[String, CombinatorInfo] = {
     typeTag.tpe.members.flatMap (member =>
@@ -192,15 +193,16 @@ trait ReflectedRepository[A] { self =>
     InhabitationResult(result, targetType, evalInhabitant[T])
   }
 
-  def addCombinator[C](name: String, combinator: C)(implicit combinatorTag: WeakTypeTag[C]): ReflectedRepository[A] = {
+  def addCombinator[C](combinator: C)(implicit combinatorTag: WeakTypeTag[C]): ReflectedRepository[A] = {
     new ReflectedRepository[A] {
       lazy val typeTag = self.typeTag
       lazy val instance = self.instance
       lazy val semanticTaxonomy = self.semanticTaxonomy
       lazy val kinding = self.kinding
       lazy val algorithm = self.algorithm
+      lazy val classLoader: ClassLoader = self.classLoader
       override lazy val combinatorComponents: Map[String, CombinatorInfo] =
-        findCombinatorComponents + (name -> dynamicCombinatorInfoFor(name, combinator))
+        findCombinatorComponents + (combinatorTag.tpe.toString -> dynamicCombinatorInfoFor(combinatorTag.tpe.toString, combinator))
     }
   }
 }
@@ -223,17 +225,20 @@ object ReflectedRepository {
   def apply[R](inst: R,
     semanticTaxonomy: Taxonomy = Taxonomy.empty,
     kinding: Kinding = Kinding.empty,
-    algorithm : InhabitationAlgorithm = BoundedCombinatoryLogic.algorithm
+    algorithm : InhabitationAlgorithm = BoundedCombinatoryLogic.algorithm,
+    classLoader: ClassLoader = getClass.getClassLoader
   )(implicit tag: WeakTypeTag[R]): ReflectedRepository[R] = {
     val algo = algorithm
     val semTax = semanticTaxonomy
     val knd = kinding
+    val loader = classLoader
     new ReflectedRepository[R] {
       lazy val typeTag = tag
       lazy val instance = inst
       lazy val semanticTaxonomy = semTax
       lazy val kinding = knd
       lazy val algorithm = algo
+      lazy val classLoader = loader
     }
   }
 }

@@ -25,7 +25,7 @@ class DynamicCombinatorTest extends FunSpec {
 
   val repository = new Repo
   val result = ReflectedRepository(repository)
-  val augmentedResult = result.addCombinator("MakeSense", MakeSense)
+  val augmentedResult = result.addCombinator(MakeSense)
 
   describe("The reflected repository") {
     describe("when inhabiting NonSense") {
