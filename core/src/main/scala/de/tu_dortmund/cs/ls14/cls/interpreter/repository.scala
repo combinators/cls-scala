@@ -79,13 +79,13 @@ trait ReflectedRepository[A] { self =>
   }
   lazy val combinatorComponents: Map[String, CombinatorInfo] = findCombinatorComponents
 
-  def applyMethodInfoFor(typeSignature: universe.Type): (Option[Seq[universe.Type]], universe.Type) = {
+  def applyMethodInfoFor(combinatorName: String, typeSignature: universe.Type): (Option[Seq[universe.Type]], universe.Type) = {
     val applyMember = typeSignature.member(TermName("apply"))
     if (!applyMember.isMethod)
-      throw new RuntimeException("Combinators need to have an apply method")
+      throw new RuntimeException(s"$combinatorName: Combinators need to have an apply method")
     val applyMethod = applyMember.asMethod
     if (applyMethod.typeParams.nonEmpty)
-      throw new RuntimeException("Combinator methods cannot have type parameters")
+      throw new RuntimeException(s"$combinatorName: Combinator methods cannot have type parameters")
     applyMethod.typeSignatureIn(typeSignature) match {
         case NullaryMethodType(result) => (None, result.dealias)
         case MethodType(params, result) =>
@@ -103,7 +103,7 @@ trait ReflectedRepository[A] { self =>
   }
 
   def staticCombinatorInfoFor(combinatorName: String, typeSignature: universe.Type): StaticCombinatorInfo = {
-    val (applyMethodParameters, applyMethodResult) = applyMethodInfoFor(typeSignature)
+    val (applyMethodParameters, applyMethodResult) = applyMethodInfoFor(combinatorName, typeSignature)
     val tb = this.tb
     val semanticType =
       typeSignature
@@ -124,7 +124,7 @@ trait ReflectedRepository[A] { self =>
   }
   def dynamicCombinatorInfoFor[C](combinatorName: String, combinatorInstance: C)
     (implicit combinatorTypeTag: WeakTypeTag[C]): DynamicCombinatorInfo[C] = {
-    val (applyMethodParameters, applyMethodResult) = applyMethodInfoFor(combinatorTypeTag.tpe)
+    val (applyMethodParameters, applyMethodResult) = applyMethodInfoFor(combinatorName, combinatorTypeTag.tpe)
     val tb = this.tb
     val semanticType =
       combinatorTypeTag
