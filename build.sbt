@@ -2,7 +2,7 @@ import sbt.Keys._
 import sbt.Resolver
 
 lazy val commonSettings = Seq(
-  version := "1.1.0-SNAPSHOT",
+  version := "1.1.1-SNAPSHOT",
   organization := "de.tu_dortmund.cs.ls14",
 
   scalaVersion := "2.11.11",
@@ -47,9 +47,9 @@ lazy val core = (Project(id = "cls-scala", base = file("core")))
       )
     )
 
-lazy val root = (project in file(".")).
-  settings(commonSettings: _*).
-  aggregate(core, examples).
-  settings(
+lazy val root = (Project(id = "cls-scala-root", base = file(".")))
+  .settings(commonSettings: _*)
+  .aggregate(core, examples)
+  .settings(
     moduleName := "cls-scala-root"
   )

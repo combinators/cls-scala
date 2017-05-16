@@ -1,5 +1,7 @@
 package de.tu_dortmund.cs.ls14.cls.interpreter
 
+import java.util.UUID
+
 import de.tu_dortmund.cs.ls14.cls.inhabitation.{BoundedCombinatoryLogic, InhabitationAlgorithm, Tree, TreeGrammar, TreeGrammarEnumeration}
 import de.tu_dortmund.cs.ls14.cls.types.{Type, _}
 
@@ -34,7 +36,8 @@ case class DynamicCombinatorInfo[A](name: String,
   result: universe.Type,
   semanticType: Option[Type],
   instance: A,
-  combinatorTypeTag: WeakTypeTag[A]) extends CombinatorInfo
+  combinatorTypeTag: WeakTypeTag[A],
+  uniqueNameTag: String = UUID.randomUUID().toString) extends CombinatorInfo
 
 case class InhabitationResult[T](grammar: TreeGrammar, target: Type, resultInterpreter: Tree => T) {
   val terms = TreeGrammarEnumeration(grammar, target)
@@ -168,7 +171,7 @@ trait ReflectedRepository[A] { self =>
       info match {
         case StaticCombinatorInfo(name, _, _, _) =>
           q"${reify(this.instance).in(tb.mirror)}.asInstanceOf[${typeTag.in(tb.mirror).tpe}].${toTermName(name)}"
-        case DynamicCombinatorInfo(_, _, _, _, combinatorInstance, combinatorTypeTag) =>
+        case DynamicCombinatorInfo(_, _, _, _, combinatorInstance, combinatorTypeTag, _) =>
           q"${reify(combinatorInstance).in(tb.mirror)}.asInstanceOf[${combinatorTypeTag.in(tb.mirror).tpe}]"
       }
     def constructTerm(inhabitant: Tree): universe.Tree =
@@ -201,8 +204,11 @@ trait ReflectedRepository[A] { self =>
       lazy val kinding = self.kinding
       lazy val algorithm = self.algorithm
       lazy val classLoader: ClassLoader = self.classLoader
-      override lazy val combinatorComponents: Map[String, CombinatorInfo] =
-        findCombinatorComponents + (combinatorTag.tpe.toString -> dynamicCombinatorInfoFor(combinatorTag.tpe.toString, combinator))
+      override lazy val combinatorComponents: Map[String, CombinatorInfo] = {
+        val dynamicCombinatorInfo = dynamicCombinatorInfoFor(combinatorTag.tpe.toString, combinator)
+        val mapKey = s"DynamicCombinator(${dynamicCombinatorInfo.name}, ${dynamicCombinatorInfo.uniqueNameTag})"
+        self.combinatorComponents + (mapKey -> dynamicCombinatorInfo)
+      }
     }
   }
 }

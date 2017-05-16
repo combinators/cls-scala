@@ -25,9 +25,10 @@ class DynamicCombinatorTest extends FunSpec {
 
   val repository = new Repo
   val result = ReflectedRepository(repository)
-  val augmentedResult = result.addCombinator(MakeSense)
 
-  describe("The reflected repository") {
+
+  describe("The augmented repository") {
+    val augmentedResult = result.addCombinator(MakeSense)
     describe("when inhabiting NonSense") {
       val inhabitants = result.inhabit[String]('NonSense).interpretedTerms
       it("should find NonSense") {
@@ -55,6 +56,24 @@ class DynamicCombinatorTest extends FunSpec {
           assert(!inhabitants.values.isEmpty)
           assert(inhabitants.index(0) == "42")
         }
+      }
+    }
+  }
+
+  class IncrementCombinator(delta: Int, semantics: Type) {
+    def apply(x: Int): Int = x + delta
+    val semanticType = semantics
+  }
+
+  describe("The reflected repository with two IncrementCombinator instances") {
+    val incOne = new IncrementCombinator(1, 'NonSense =>: 'Sense1)
+    val incTwo = new IncrementCombinator(2, 'Sense1 =>: 'Sense2)
+    val augmentedResult = result.addCombinator(incOne).addCombinator(incTwo)
+    describe("when inhabiting Sense2") {
+      val inhabitants = augmentedResult.inhabit[Int]('Sense2).interpretedTerms
+      it("should find 44") {
+        assert(!inhabitants.values.isEmpty)
+        assert(inhabitants.index(0) == 44)
       }
     }
   }
