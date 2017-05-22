@@ -56,14 +56,14 @@ class BoundedCombinatoryLogic(kinding: Kinding, subtypes: SubtypeEnvironment, Ga
   lazy val repository = blowUp(Gamma)
   lazy val algorithm = new FiniteCombinatoryLogic(subtypes, repository)
 
-  def inhabit(target: Type): TreeGrammar =
-    algorithm.inhabit(target)
+  def inhabit(targets: Type*): TreeGrammar =
+    algorithm.inhabit(targets: _*)
 }
 
 
 object BoundedCombinatoryLogic {
   def algorithm: InhabitationAlgorithm = {
     case (kinding, subtypes, repository) =>
-      target => new BoundedCombinatoryLogic(kinding, subtypes, repository).inhabit(target)
+      targets => new BoundedCombinatoryLogic(kinding, subtypes, repository).inhabit(targets: _*)
   }
 }

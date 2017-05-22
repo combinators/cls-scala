@@ -7,5 +7,5 @@ package object inhabitation {
   type TreeGrammar = Map[Type, Set[(String, Seq[Type])]]
 
   type InhabitationAlgorithm =
-    (Kinding, SubtypeEnvironment, Repository) => Type => TreeGrammar
+    (Kinding, SubtypeEnvironment, Repository) => Seq[Type] => TreeGrammar
 }

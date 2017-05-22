@@ -57,6 +57,8 @@ case class InhabitationResult[T](grammar: TreeGrammar, target: Type, resultInter
   }
 }
 
+
+
 trait ReflectedRepository[A] { self =>
 
   import ReflectedRepository._
@@ -192,8 +194,74 @@ trait ReflectedRepository[A] { self =>
     val fullTaxonomy = nativeTypeTaxonomy.addNativeType[T].taxonomy.merge(semanticTaxonomy)
     val targetTypes = nativeTypeOf[T] +: semanticTypes
     val targetType = targetTypes.init.foldRight(targetTypes.last){ case (ty, tgt) => Intersection(ty, tgt) }
-    val result = algorithm(kinding, SubtypeEnvironment(fullTaxonomy.underlyingMap), combinators)(targetType)
+    val result = algorithm(kinding, SubtypeEnvironment(fullTaxonomy.underlyingMap), combinators)(Seq(targetType))
     InhabitationResult(result, targetType, evalInhabitant[T])
+  }
+
+
+  trait InhabitationBatchJob { self =>
+    type RequestType
+    val semanticTypes: Seq[Type]
+    val typeTag: WeakTypeTag[RequestType]
+
+    type ResultType
+
+    def enrichTaxonomyWithTargets(taxonomy: NativeTaxonomyBuilder): NativeTaxonomyBuilder =
+      taxonomy.addNativeType[RequestType](typeTag)
+
+    def targets: Seq[Type] = {
+      val targetTypes = nativeTypeOf[RequestType](typeTag) +: semanticTypes
+      Seq(targetTypes.init.foldRight(targetTypes.last) { case (ty, tgt) => Intersection(ty, tgt) })
+    }
+
+    def toResult(resultGrammar: TreeGrammar): ResultType
+
+    def addJob[R](semanticTypes: Type*)(implicit tag: WeakTypeTag[R]): InhabitationBatchJob.AuxWithPrior[R, ResultType] = {
+      val sts = semanticTypes
+      new InhabitationBatchJob with HasPriorJob[ResultType] {
+        type RequestType = R
+        val typeTag: universe.WeakTypeTag[R] = tag
+        val semanticTypes: Seq[Type] = sts
+        lazy val priorJob: self.type = self
+      }
+    }
+
+    def run(): ResultType = {
+      val fullTaxonomy = enrichTaxonomyWithTargets(nativeTypeTaxonomy).taxonomy.merge(semanticTaxonomy)
+      val resultGrammar = algorithm(kinding, SubtypeEnvironment(fullTaxonomy.underlyingMap), combinators)(targets)
+      toResult(resultGrammar)
+    }
+  }
+
+  trait HasPriorJob[P] extends InhabitationBatchJob {
+    type ResultType = (P, InhabitationResult[RequestType])
+    val priorJob: InhabitationBatchJob.AuxWithResult[P]
+    abstract override def enrichTaxonomyWithTargets(taxonomy: NativeTaxonomyBuilder): NativeTaxonomyBuilder =
+      super.enrichTaxonomyWithTargets(priorJob.enrichTaxonomyWithTargets(taxonomy))
+
+    abstract override def targets: Seq[Type] =
+      super.targets ++ priorJob.targets
+
+    override def toResult(resultGrammar: TreeGrammar): ResultType =
+      (priorJob.toResult(resultGrammar),
+        InhabitationResult(resultGrammar, super.targets.head, evalInhabitant[RequestType]))
+  }
+
+  object InhabitationBatchJob {
+    type Aux[R] = InhabitationBatchJob { type RequestType = R; type ResultType = InhabitationResult[R] }
+    type AuxWithResult[R] = InhabitationBatchJob { type ResultType = R }
+    type AuxWithPrior[R, P] = InhabitationBatchJob { type ResultType = (P, InhabitationResult[R]) }
+    def apply[R](semanticTypes: Type*)(implicit tag: WeakTypeTag[R]): Aux[R] = {
+      val sts = semanticTypes
+      new InhabitationBatchJob {
+        type RequestType = R
+        type ResultType = InhabitationResult[R]
+        val typeTag: universe.WeakTypeTag[R] = tag
+        val semanticTypes: Seq[Type] = sts
+        override def toResult(resultGrammar: TreeGrammar): InhabitationResult[R] =
+          InhabitationResult(resultGrammar, super.targets.head, evalInhabitant[R])
+      }
+    }
   }
 
   def addCombinator[C](combinator: C)(implicit combinatorTag: WeakTypeTag[C]): ReflectedRepository[A] = {

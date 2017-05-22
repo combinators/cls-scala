@@ -168,6 +168,46 @@ class InterpreterTest extends FunSpec {
     }
   }
 
+  describe("when batch inhabiting List[Top] :&: 'foo and Double :&: 'A and Double :&: 'C with C = A") {
+    import scala.language.existentials
+    val result = ReflectedRepository(repository,
+      semanticTaxonomy = repository.repatedTaxonomy.merge(Taxonomy("C").addSubtype("A").merge(Taxonomy("A").addSubtype("C"))))
+
+
+    lazy val job =
+      result.InhabitationBatchJob[List[Top]]('foo)
+        .addJob[Double]('A)
+        .addJob[Double]('C)
+
+    it(s"should have a job with two targets") {
+      job.targets.length == 3
+    }
+
+    lazy val inhabitants = job.run()
+
+    it(s"should yield $fTree and $g2Tree") {
+      assert(!inhabitants._1._1.isInfinite)
+      assert(inhabitants._1._1.terms.values.flatMap(_._2).forall(tree => tree == fTree || tree == g2Tree))
+    }
+
+    it(s"should have an infinite third component") {
+      assert(inhabitants._2.isInfinite)
+    }
+
+    it(s"should yield 42") {
+      assert(inhabitants._1._2.interpretedTerms.values.flatMap(_._2).contains(42))
+      assert(inhabitants._2.interpretedTerms.values.flatMap(_._2).contains(42))
+    }
+    it("should yield 84") {
+      assert(inhabitants._1._2.interpretedTerms.values.flatMap(_._2).contains(84))
+      assert(inhabitants._2.interpretedTerms.values.flatMap(_._2).contains(84))
+    }
+    it("should yield 126") {
+      assert(inhabitants._1._2.interpretedTerms.values.flatMap(_._2).contains(126))
+      assert(inhabitants._2.interpretedTerms.values.flatMap(_._2).contains(126))
+    }
+  }
+
   describe("Interpretation of inhabitants") {
     describe(s"Interpretation of $fTree") {
       it("should yield List.empty[Super]") {
