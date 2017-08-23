@@ -129,7 +129,8 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     debugPrint(tgt, ">>> Current target")
     debugPrint(result, ">>> Result so far")
     val knownSupertypes = findSupertypeEntries(result, tgt)
-    if (knownSupertypes.values.exists(Set.empty)) {
+    debugPrint(knownSupertypes, "<<<<>>>>> SupertypeEntries:")
+    if (knownSupertypes.values.exists(_ == Set.empty)) {
       debugPrint(tgt, ">>> Already present and failed")
       (removeEntriesWithArgument(result, tgt), Stream.empty)
     } else {
@@ -234,7 +235,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
       .getOrElse(Set.empty[Type])
   }
 
-  final def prune(grammar: TreeGrammar): TreeGrammar = {
+  def prune(grammar: TreeGrammar): TreeGrammar = {
     lazy val groundTypes = groundTypesOf(grammar)
     grammar.foldLeft[TreeGrammar](Map.empty) {
       case (g, (k, vs)) =>
