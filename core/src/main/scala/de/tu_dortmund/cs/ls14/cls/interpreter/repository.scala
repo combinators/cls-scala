@@ -107,7 +107,7 @@ trait ReflectedRepository[A] { self =>
       }
   }
 
-  def staticCombinatorInfoFor(combinatorName: String, typeSignature: universe.Type): StaticCombinatorInfo = {
+  def staticCombinatorInfoFor(combinatorName: String, typeSignature: universe.Type): StaticCombinatorInfo = ReflectedRepository.synchronized {
     val (applyMethodParameters, applyMethodResult) = applyMethodInfoFor(combinatorName, typeSignature)
     val tb = this.tb
     val semanticType =
@@ -127,6 +127,7 @@ trait ReflectedRepository[A] { self =>
           ).asInstanceOf[Type])
     StaticCombinatorInfo(combinatorName, applyMethodParameters, applyMethodResult, semanticType)
   }
+
   def dynamicCombinatorInfoFor[C](combinatorName: String, combinatorInstance: C)
     (implicit combinatorTypeTag: WeakTypeTag[C]): DynamicCombinatorInfo[C] = {
     val (applyMethodParameters, applyMethodResult) = applyMethodInfoFor(combinatorName, combinatorTypeTag.tpe)
@@ -190,7 +191,7 @@ trait ReflectedRepository[A] { self =>
   }
 
 
-  def inhabit[T](semanticTypes: Type*)(implicit targetTag: WeakTypeTag[T]): InhabitationResult[T] = {
+  def inhabit[T](semanticTypes: Type*)(implicit targetTag: WeakTypeTag[T]): InhabitationResult[T] = ReflectedRepository.synchronized {
     val fullTaxonomy = nativeTypeTaxonomy.addNativeType[T].taxonomy.merge(semanticTaxonomy)
     val targetTypes = nativeTypeOf[T] +: semanticTypes
     val targetType = targetTypes.init.foldRight(targetTypes.last){ case (ty, tgt) => Intersection(ty, tgt) }
