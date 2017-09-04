@@ -26,17 +26,20 @@ sealed trait CombinatorInfo {
         case (Some(ps), Some(otherPs)) if ps.size == otherPs.size =>
           ps.zip(otherPs).forall(p => p._1 =:= p._2)
       })
+
 }
 case class StaticCombinatorInfo(name: String,
   parameters: Option[Seq[universe.Type]],
   result: universe.Type,
-  semanticType: Option[Type]) extends CombinatorInfo
+  semanticType: Option[Type],
+  fullSignature: universe.Type) extends CombinatorInfo
 case class DynamicCombinatorInfo[A](name: String,
   parameters: Option[Seq[universe.Type]],
   result: universe.Type,
   semanticType: Option[Type],
   instance: A,
   combinatorTypeTag: WeakTypeTag[A],
+  position: Array[StackTraceElement],
   uniqueNameTag: String = UUID.randomUUID().toString) extends CombinatorInfo
 
 case class InhabitationResult[T](grammar: TreeGrammar, target: Type, resultInterpreter: Tree => T) {
@@ -125,10 +128,10 @@ trait ReflectedRepository[A] { self =>
                     .semanticType
                   })"""
           ).asInstanceOf[Type])
-    StaticCombinatorInfo(combinatorName, applyMethodParameters, applyMethodResult, semanticType)
+    StaticCombinatorInfo(combinatorName, applyMethodParameters, applyMethodResult, semanticType, typeSignature.dealias)
   }
 
-  def dynamicCombinatorInfoFor[C](combinatorName: String, combinatorInstance: C)
+  def dynamicCombinatorInfoFor[C](combinatorName: String, combinatorInstance: C, position: Array[StackTraceElement])
     (implicit combinatorTypeTag: WeakTypeTag[C]): DynamicCombinatorInfo[C] = {
     val (applyMethodParameters, applyMethodResult) = applyMethodInfoFor(combinatorName, combinatorTypeTag.tpe)
     val tb = this.tb
@@ -143,7 +146,13 @@ trait ReflectedRepository[A] { self =>
                   .asInstanceOf[${combinatorTypeTag.in(tb.mirror).tpe}]
                   .semanticType"""
           ).asInstanceOf[Type])
-    DynamicCombinatorInfo(combinatorName, applyMethodParameters, applyMethodResult, semanticType, combinatorInstance, combinatorTypeTag)
+    DynamicCombinatorInfo(combinatorName,
+      applyMethodParameters,
+      applyMethodResult,
+      semanticType,
+      combinatorInstance,
+      combinatorTypeTag,
+      position)
   }
 
 
@@ -156,12 +165,7 @@ trait ReflectedRepository[A] { self =>
     scalaTypes.map((ty: universe.Type) => nativeTypeOf(ty))
 
   lazy val combinators: Map[String, Type] =
-    combinatorComponents
-      .mapValues(combinatorInfo =>
-        combinatorInfo.semanticType match {
-          case None => nativeTypeOf (combinatorInfo)
-          case Some(semTy) => Intersection(nativeTypeOf(combinatorInfo), semTy)
-        })
+    combinatorComponents.mapValues(fullTypeOf)
 
   lazy val nativeTypeTaxonomy: NativeTaxonomyBuilder =
     new NativeTaxonomyBuilder(scalaTypes)
@@ -172,9 +176,9 @@ trait ReflectedRepository[A] { self =>
       TermName(NameTransformer.encode(name))
     def toCombinatorInstanceTree(info: CombinatorInfo): universe.Tree =
       info match {
-        case StaticCombinatorInfo(name, _, _, _) =>
+        case StaticCombinatorInfo(name, _, _, _, _) =>
           q"${reify(this.instance).in(tb.mirror)}.asInstanceOf[${typeTag.in(tb.mirror).tpe}].${toTermName(name)}"
-        case DynamicCombinatorInfo(_, _, _, _, combinatorInstance, combinatorTypeTag, _) =>
+        case DynamicCombinatorInfo(_, _, _, _, combinatorInstance, combinatorTypeTag, _, _) =>
           q"${reify(combinatorInstance).in(tb.mirror)}.asInstanceOf[${combinatorTypeTag.in(tb.mirror).tpe}]"
       }
     def constructTerm(inhabitant: Tree): universe.Tree =
@@ -265,7 +269,8 @@ trait ReflectedRepository[A] { self =>
     }
   }
 
-  def addCombinator[C](combinator: C)(implicit combinatorTag: WeakTypeTag[C]): ReflectedRepository[A] = {
+  def addCombinator[C](combinator: C, position: Array[StackTraceElement] = Thread.currentThread().getStackTrace)
+    (implicit combinatorTag: WeakTypeTag[C]): ReflectedRepository[A] = {
     new ReflectedRepository[A] {
       lazy val typeTag = self.typeTag
       lazy val instance = self.instance
@@ -274,7 +279,7 @@ trait ReflectedRepository[A] { self =>
       lazy val algorithm = self.algorithm
       lazy val classLoader: ClassLoader = self.classLoader
       override lazy val combinatorComponents: Map[String, CombinatorInfo] = {
-        val dynamicCombinatorInfo = dynamicCombinatorInfoFor(combinatorTag.tpe.toString, combinator)
+        val dynamicCombinatorInfo = dynamicCombinatorInfoFor(combinatorTag.tpe.toString, combinator, position)
         val mapKey = s"DynamicCombinator(${dynamicCombinatorInfo.name}, ${dynamicCombinatorInfo.uniqueNameTag})"
         self.combinatorComponents + (mapKey -> dynamicCombinatorInfo)
       }
@@ -296,6 +301,12 @@ object ReflectedRepository {
       .foldRight[Type](nativeTypeOf(combinatorInfo.result)) {
         case (parameter, result) => Arrow(parameter, result)
       }
+
+  def fullTypeOf(combinatorInfo: CombinatorInfo): Type =
+    combinatorInfo.semanticType match {
+      case None => nativeTypeOf(combinatorInfo)
+      case Some(semTy) => Intersection(nativeTypeOf(combinatorInfo), semTy)
+    }
 
   def apply[R](inst: R,
     semanticTaxonomy: Taxonomy = Taxonomy.empty,
