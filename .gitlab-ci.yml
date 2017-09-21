@@ -11,4 +11,6 @@ before_script:
 test:
   script:
     - sbt clean coverage test coverageReport
-
+  artifacts:
+    paths:
+      - "*/target/*/scoverage-report"
