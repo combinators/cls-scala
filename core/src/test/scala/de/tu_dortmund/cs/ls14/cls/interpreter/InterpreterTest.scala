@@ -83,13 +83,13 @@ class InterpreterTest extends FunSpec {
     val typeTag: WeakTypeTag[Type] = implicitly
     val typeTypeTag: WeakTypeTag[Type => Type] = implicitly
 
-    val fExpectedInfo = StaticCombinatorInfo("f", Some(List(intTag.tpe, stringTag.tpe)), listSuperTag.tpe, Some(Omega =>: 'bar =>: 'foo))
-    val g1ExpectedInfo = StaticCombinatorInfo("g1", Some(List(typeTag.tpe)), typeTypeTag.tpe, Some(Omega =>: Omega))
-    val g2ExpectedInfo = StaticCombinatorInfo("g2", Some(List(intTag.tpe, stringTag.tpe)), listSubTag.tpe, Some(Omega =>: 'bar =>: 'foo))
-    val h1ExpectedInfo = StaticCombinatorInfo("h1", Some(List()), intTag.tpe, None)
-    val h2ExpectedInfo = StaticCombinatorInfo("h2", None, stringTag.tpe, Some('foo :&: 'bar))
-    val repeatedExpectedInfo = StaticCombinatorInfo("repeated", Some(List(doubleTag.tpe, doubleTag.tpe)), doubleTag.tpe, Some('A =>: 'A =>: 'B))
-    val repeatedStartExpectedInfo = StaticCombinatorInfo("repeatedStart", None, doubleTag.tpe, Some('A))
+    val fExpectedInfo = StaticCombinatorInfo("f", Some(List(intTag.tpe, stringTag.tpe)), listSuperTag.tpe, Some(Omega =>: 'bar =>: 'foo), null)
+    val g1ExpectedInfo = StaticCombinatorInfo("g1", Some(List(typeTag.tpe)), typeTypeTag.tpe, Some(Omega =>: Omega), null)
+    val g2ExpectedInfo = StaticCombinatorInfo("g2", Some(List(intTag.tpe, stringTag.tpe)), listSubTag.tpe, Some(Omega =>: 'bar =>: 'foo), null)
+    val h1ExpectedInfo = StaticCombinatorInfo("h1", Some(List()), intTag.tpe, None, null)
+    val h2ExpectedInfo = StaticCombinatorInfo("h2", None, stringTag.tpe, Some('foo :&: 'bar), null)
+    val repeatedExpectedInfo = StaticCombinatorInfo("repeated", Some(List(doubleTag.tpe, doubleTag.tpe)), doubleTag.tpe, Some('A =>: 'A =>: 'B), null)
+    val repeatedStartExpectedInfo = StaticCombinatorInfo("repeatedStart", None, doubleTag.tpe, Some('A), null)
 
     it(s"should include $fExpectedInfo") {
       assert(result.combinatorComponents.values.toSet.exists(_ =:= fExpectedInfo))
@@ -228,7 +228,7 @@ class InterpreterTest extends FunSpec {
     val genericInstanceRepo = new GenericTestRepo {}
     val reflectedGenericInstanceRepo = ReflectedRepository[GenericTestRepo](genericInstanceRepo)
     val intTag: WeakTypeTag[Int] = implicitly
-    val IntIdExpectedInfo = StaticCombinatorInfo("IntId", Some(List(intTag.tpe)), intTag.tpe, None)
+    val IntIdExpectedInfo = StaticCombinatorInfo("IntId", Some(List(intTag.tpe)), intTag.tpe, None, null)
     it("should resolve type variables") {
       val result = reflectedGenericInstanceRepo.combinatorComponents("IntId")
       assert(result =:= IntIdExpectedInfo)
