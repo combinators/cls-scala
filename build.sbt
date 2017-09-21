@@ -29,7 +29,7 @@ lazy val examples = (Project(id = "cls-scala-examples", base = file("examples"))
     .disablePlugins(PlayLayoutPlugin)
     .settings(
       moduleName := "cls-scala-examples",
-
+      libraryDependencies += guice,
       PlayKeys.playMonitoredFiles ++= (sourceDirectories in (Compile, TwirlKeys.compileTemplates)).value
     ).dependsOn(core)
 
