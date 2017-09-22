@@ -5,7 +5,7 @@ lazy val commonSettings = Seq(
   version := "1.3.1-SNAPSHOT",
   organization := "de.tu_dortmund.cs.ls14",
 
-  scalaVersion := "2.11.11",
+  scalaVersion := "2.12.3",
 
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
@@ -29,7 +29,7 @@ lazy val examples = (Project(id = "cls-scala-examples", base = file("examples"))
     .disablePlugins(PlayLayoutPlugin)
     .settings(
       moduleName := "cls-scala-examples",
-
+      libraryDependencies += guice,
       PlayKeys.playMonitoredFiles ++= (sourceDirectories in (Compile, TwirlKeys.compileTemplates)).value
     ).dependsOn(core)
 
@@ -38,7 +38,7 @@ lazy val core = (Project(id = "cls-scala", base = file("core")))
     .settings(
       moduleName := "cls-scala",
 
-      crossScalaVersions := Seq("2.11.11", "2.12.2"),
+      crossScalaVersions := Seq("2.11.11", scalaVersion.value),
       libraryDependencies ++= Seq(
         "de.tu_dortmund.cs.ls14" %% "shapeless-feat" % "0.2.1",
         "org.scala-lang" % "scala-compiler" % scalaVersion.value,
