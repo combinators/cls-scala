@@ -175,7 +175,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
         case ((g, Some(result)), tgt) =>
           inhabitStep(g, tgt) match {
             case (newG, r@(_ #:: _)) => (newG, Some(result.append(r)))
-            case (newG, _) => (newG, None)
+            case _ => (grammar, None)
           }
       }
     (newGrammar, newTgts.getOrElse(Stream.empty))
