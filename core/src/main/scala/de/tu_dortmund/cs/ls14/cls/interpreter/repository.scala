@@ -46,6 +46,8 @@ case class InhabitationResult[T](grammar: TreeGrammar, target: Type, resultInter
   val terms = TreeGrammarEnumeration(grammar, target)
   val interpretedTerms = terms.map(resultInterpreter)
 
+  def isEmpty: Boolean = !grammar.contains(target)
+
   def isInfinite: Boolean = {
     def visit(seen: Set[Type], start: Type): Boolean = {
       if (seen.contains(start)) true
@@ -56,7 +58,14 @@ case class InhabitationResult[T](grammar: TreeGrammar, target: Type, resultInter
         }
       }
     }
-    visit(Set.empty, target)
+    !isEmpty && visit(Set.empty, target)
+  }
+
+  def size: Option[BigInt] = {
+    Option(!isInfinite).collect {
+      case true if isEmpty => 0
+      case true => terms.values.foldLeft(0){case (s, (_, xs)) => s + xs.size }
+    }
   }
 }
 

@@ -30,31 +30,36 @@ class DynamicCombinatorTest extends FunSpec {
   describe("The augmented repository") {
     val augmentedResult = result.addCombinator(MakeSense)
     describe("when inhabiting NonSense") {
-      val inhabitants = result.inhabit[String]('NonSense).interpretedTerms
+      val inhabitants = result.inhabit[String]('NonSense)
       it("should find NonSense") {
-        assert(!inhabitants.values.isEmpty)
-        assert(inhabitants.index(0) == "41")
+        assert(!inhabitants.isEmpty)
+        assert(inhabitants.interpretedTerms.index(0) == "41")
       }
     }
     describe("when inhabiting Sense") {
-      val inhabitants = result.inhabit[String]('Sense).interpretedTerms
+      val inhabitants = result.inhabit[String]('Sense)
       it("should not find anything") {
-        assert(inhabitants.values.isEmpty)
+        assert(!inhabitants.isInfinite)
+        assert(inhabitants.isEmpty)
+        assert(inhabitants.size.contains(0))
+        assert(inhabitants.interpretedTerms.values.isEmpty)
       }
     }
     describe("When dynamically agumented with MakeSense") {
      describe("when inhabiting NonSense") {
-        val inhabitants = augmentedResult.inhabit[String]('NonSense).interpretedTerms
+        val inhabitants = augmentedResult.inhabit[String]('NonSense)
         describe("Should find NonSense") {
-          assert(!inhabitants.values.isEmpty)
-          assert(inhabitants.index(0) == "41")
+          assert(!inhabitants.isEmpty)
+          assert(inhabitants.size.exists(_ > 0))
+          assert(inhabitants.interpretedTerms.index(0) == "41")
         }
       }
       describe("when inhabiting Sense") {
-        val inhabitants = augmentedResult.inhabit[String]('Sense).interpretedTerms
+        val inhabitants = augmentedResult.inhabit[String]('Sense)
         it("should find 42") {
-          assert(!inhabitants.values.isEmpty)
-          assert(inhabitants.index(0) == "42")
+          assert(!inhabitants.isEmpty)
+          assert(inhabitants.size.exists(_ > 0))
+          assert(inhabitants.interpretedTerms.index(0) == "42")
         }
       }
     }
@@ -70,10 +75,11 @@ class DynamicCombinatorTest extends FunSpec {
     val incTwo = new IncrementCombinator(2, 'Sense1 =>: 'Sense2)
     val augmentedResult = result.addCombinator(incOne).addCombinator(incTwo)
     describe("when inhabiting Sense2") {
-      val inhabitants = augmentedResult.inhabit[Int]('Sense2).interpretedTerms
+      val inhabitants = augmentedResult.inhabit[Int]('Sense2)
       it("should find 44") {
-        assert(!inhabitants.values.isEmpty)
-        assert(inhabitants.index(0) == 44)
+        assert(!inhabitants.isEmpty)
+        assert(inhabitants.size.exists(_ > 0))
+        assert(inhabitants.interpretedTerms.index(0) == 44)
       }
     }
   }
