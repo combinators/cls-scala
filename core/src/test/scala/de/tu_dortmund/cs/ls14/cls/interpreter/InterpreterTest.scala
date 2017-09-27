@@ -122,7 +122,7 @@ class InterpreterTest extends FunSpec {
         repeatedExpectedInfo,
         repeatedStartExpectedInfo
       )
-      assert(result.combinatorComponents.values.toSet.filter(p => !allExpected.exists(_ =:= p)).isEmpty)
+      assert(result.combinatorComponents.values.toSet.forall(p => allExpected.exists(_ =:= p)))
     }
 
   }
@@ -145,6 +145,7 @@ class InterpreterTest extends FunSpec {
     val inhabitants = result.inhabit[List[Top]]('foo)
     it(s"should yield $fTree and $g2Tree") {
       assert(!inhabitants.isInfinite)
+      assert(!inhabitants.isEmpty)
       assert(inhabitants.terms.values.flatMap(_._2).forall(tree => tree == fTree || tree == g2Tree))
     }
   }
@@ -155,6 +156,7 @@ class InterpreterTest extends FunSpec {
 
     it(s"should be infinite") {
       assert(inhabitants.isInfinite)
+      assert(inhabitants.size.isEmpty)
     }
 
     it(s"should yield 42") {
@@ -187,6 +189,7 @@ class InterpreterTest extends FunSpec {
 
     it(s"should yield $fTree and $g2Tree") {
       assert(!inhabitants._1._1.isInfinite)
+      assert(inhabitants._1._1.size.exists(_ >= 2))
       assert(inhabitants._1._1.terms.values.flatMap(_._2).forall(tree => tree == fTree || tree == g2Tree))
     }
 

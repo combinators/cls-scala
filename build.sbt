@@ -2,7 +2,7 @@ import sbt.Keys._
 import sbt.Resolver
 
 lazy val commonSettings = Seq(
-  version := "1.3.1-SNAPSHOT",
+  version := "1.3.2-SNAPSHOT",
   organization := "de.tu_dortmund.cs.ls14",
 
   scalaVersion := "2.12.3",
