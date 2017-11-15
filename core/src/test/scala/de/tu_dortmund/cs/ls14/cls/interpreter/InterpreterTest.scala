@@ -1,6 +1,6 @@
 package de.tu_dortmund.cs.ls14.cls.interpreter
 
-import de.tu_dortmund.cs.ls14.cls.inhabitation.{FiniteCombinatoryLogic, Tree, TreeGrammarEnumeration}
+import de.tu_dortmund.cs.ls14.cls.inhabitation.Tree
 import org.scalatest._
 
 import scala.reflect.runtime.universe.{Type => UType, _}
@@ -28,7 +28,7 @@ class InterpreterTest extends FunSpec {
   trait Repository1 {
     @combinator object f {
       def apply(x: => Int, y: String): List[Super] = List.empty
-      def semanticType = Omega =>: 'bar =>: 'foo
+      def semanticType: Type = Omega =>: 'bar =>: 'foo
     }
     object foo
   }
@@ -36,11 +36,11 @@ class InterpreterTest extends FunSpec {
   trait Repository2 {
     @combinator object g1 {
       def apply(x: Type): Type => Type = x => x
-      val semanticType = Omega =>: Omega
+      val semanticType: Type = Omega =>: Omega
     }
     @combinator object g2 {
       def apply(x: Int, y: String): List[Sub] = List(Sub())
-      def semanticType = Omega =>: 'bar =>: 'foo
+      def semanticType: Type = Omega =>: 'bar =>: 'foo
     }
     object notACombinator {
       def apply(x: Int): String = "I'm not a combinator"
@@ -50,13 +50,13 @@ class InterpreterTest extends FunSpec {
   trait RepoRepeat {
     @combinator object repeated {
       def apply(x: Double, y: Double): Double = x + y
-      def semanticType = 'A =>: 'A =>: 'B
+      def semanticType: Type = 'A =>: 'A =>: 'B
     }
     @combinator object repeatedStart {
       def apply: Double = 42
       val semanticType = 'A
     }
-    val repatedTaxonomy = Taxonomy("A").addSubtype("B")
+    val repatedTaxonomy: Taxonomy = Taxonomy("A").addSubtype("B")
   }
 
   class Repo extends Repository1 with Repository2 with RepoRepeat {
@@ -65,7 +65,7 @@ class InterpreterTest extends FunSpec {
     }
     @combinator object h2 {
       def apply: String = "42"
-      def semanticType = 'foo :&: 'bar
+      def semanticType: Type = 'foo :&: 'bar
     }
     def alsoNotACombinator(): String = "I'm also not a combinator"
     val test: List[Sub] = List.empty

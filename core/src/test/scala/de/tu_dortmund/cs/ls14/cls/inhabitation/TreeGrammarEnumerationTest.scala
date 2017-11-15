@@ -3,7 +3,6 @@ package de.tu_dortmund.cs.ls14.cls.inhabitation
 import de.tu_dortmund.cs.ls14.cls.types._
 import syntax._
 import org.scalatest.FunSpec
-import scala.collection.JavaConverters._
 import shapeless.feat.Enumeration
 
 class TreeGrammarEnumerationTest extends FunSpec {
@@ -45,7 +44,7 @@ class TreeGrammarEnumerationTest extends FunSpec {
                 .pay
             )
         val result = TreeGrammarEnumeration(testGrammar, 'E)
-        for (i <- (0 to 25))
+        for (i <- 0 to 25)
           assert(result.parts(i).values.toSet == expectedEnum.parts(i).values.toSet)
       }
     }

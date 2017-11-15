@@ -19,7 +19,7 @@ class FCLTest extends FunSpec {
       "Zero" -> Intersection(Constructor("Int"), Constructor("Even"))
     )
 
-  val taxonomy =
+  val taxonomy: Taxonomy =
     Taxonomy("Char")
     .addSubtype("Int")
 

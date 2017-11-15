@@ -7,11 +7,11 @@ class SubtypesTest extends FunSpec {
   describe("The environment only containing Int") {
     import onlyInt._
     it ("Should validate Int <= Int") {
-      assert(Constructor("Int").isSupertype(Constructor("Int")))
+      assert(Constructor("Int").isSupertypeOf(Constructor("Int")))
     }
     it ("Should validate Int -> Int <= Int -> Int") {
       assert(Arrow(Constructor("Int"), Constructor("Int"))
-        .isSupertype(Arrow(Constructor("Int"), Constructor("Int"))))
+        .isSupertypeOf(Arrow(Constructor("Int"), Constructor("Int"))))
     }
   }
 }

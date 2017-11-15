@@ -19,7 +19,7 @@ class BCLTest extends FunSpec {
       "f" -> Arrow(Constructor("Char"), Constructor("String"))
     )
 
-  val taxonomy =
+  val taxonomy: Taxonomy =
     Taxonomy
       .empty
       .merge(Taxonomy("Char")
@@ -31,7 +31,7 @@ class BCLTest extends FunSpec {
      .addOption(Constructor("Int"))
      .addOption(Constructor("String"))
 
-  val kinding =
+  val kinding: Kinding =
     addAll(Kinding(Variable("alpha"))).merge(addAll(Kinding(Variable("beta"))))
 
   val Gamma = new BoundedCombinatoryLogic(kinding, SubtypeEnvironment(taxonomy.underlyingMap), mapTest)

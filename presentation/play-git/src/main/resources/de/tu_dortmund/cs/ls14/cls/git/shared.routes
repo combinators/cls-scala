@@ -1,0 +1,4 @@
+GET   /vassets/*file                 controllers.Assets.versioned(path="/public", file: Asset)
+GET   /js/*file                      controllers.Assets.at(path="/de/tu_dortmund/cs/ls14/cls/git/", file)
+GET   /*path/                        URLCleanup.untrail(path)
+->   /webjars                        webjars.Routes

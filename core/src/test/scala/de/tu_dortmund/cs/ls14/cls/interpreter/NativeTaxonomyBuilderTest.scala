@@ -1,5 +1,6 @@
 package de.tu_dortmund.cs.ls14.cls.interpreter
 
+import de.tu_dortmund.cs.ls14.cls.types.Taxonomy
 import org.scalatest.FunSpec
 
 class NativeTaxonomyBuilderTest extends FunSpec {
@@ -9,17 +10,17 @@ class NativeTaxonomyBuilderTest extends FunSpec {
 
   type AliasSubA = SubA
 
-  val superTypeName = ReflectedRepository.nativeTypeOf[Super].name
-  val subATypeName = ReflectedRepository.nativeTypeOf[SubA].name
-  val subBTypeName = ReflectedRepository.nativeTypeOf[SubB].name
-  val aliasSubATypeName = ReflectedRepository.nativeTypeOf[AliasSubA].name
-  val stringTypeName = ReflectedRepository.nativeTypeOf[String].name
+  val superTypeName: String = ReflectedRepository.nativeTypeOf[Super].name
+  val subATypeName: String = ReflectedRepository.nativeTypeOf[SubA].name
+  val subBTypeName: String = ReflectedRepository.nativeTypeOf[SubB].name
+  val aliasSubATypeName: String = ReflectedRepository.nativeTypeOf[AliasSubA].name
+  val stringTypeName: String = ReflectedRepository.nativeTypeOf[String].name
 
-  val seqStringTypeName = ReflectedRepository.nativeTypeOf[Seq[String]].name
-  val seqSuperTypeName = ReflectedRepository.nativeTypeOf[Seq[Super]].name
-  val seqSubATypeName = ReflectedRepository.nativeTypeOf[Seq[SubA]].name
+  val seqStringTypeName: String = ReflectedRepository.nativeTypeOf[Seq[String]].name
+  val seqSuperTypeName: String = ReflectedRepository.nativeTypeOf[Seq[Super]].name
+  val seqSubATypeName: String = ReflectedRepository.nativeTypeOf[Seq[SubA]].name
 
-  val taxonomy =
+  val taxonomy: Taxonomy =
     new NativeTaxonomyBuilder()
       .addNativeType[Super]
       .addNativeType[SubA]

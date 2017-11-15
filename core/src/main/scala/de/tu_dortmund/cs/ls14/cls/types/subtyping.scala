@@ -1,17 +1,28 @@
 package de.tu_dortmund.cs.ls14.cls.types
 
-import scala.annotation.tailrec
-import scala.collection.mutable
-
+/** A path `p` conforms to the syntax:
+  * <code>
+  *   p ::= 'C() | 'C((Omega, )* p (, Omega)*) | sigma_1 =>: ... =>: sigma_k =>: p
+  * </code>
+  * where each `sigma_i` is an arbitrary intersection type without variables.
+  */
 sealed trait Path extends Organized { self: Type =>
-  final val paths: Stream[Type with Path] = this #:: Stream.empty
+  final val paths: Stream[Type with Path] = this #:: Stream.empty[Type with Path]
 }
 
+/** A type is organized iff it is syntactically identical to an intersection of paths. */
 trait Organized { self: Type =>
   val paths: Stream[Type with Path]
 }
 
+/** Helper methods to (de-)construct paths from (/into) arguments and targets of arrows. */
 object Path {
+  /** If possible, deconstructs a path `t` into a constructor, which is a path, and arrow parameters.
+    * <code>
+    *   unapply('A =>: 'B :&: 'C =>: 'D) = Some(Seq('A, 'B :&: 'C), 'D)
+    *   unapply('A =>: 'B :&: 'C) = None
+    * </code>
+    */
   def unapply(t: Type): Option[(Seq[Type], Constructor with Path)] =
     t match {
       case c : Constructor with Path => Some((Seq.empty, c))
@@ -29,13 +40,16 @@ object Path {
       case _ => None
     }
 
+  /** Constructs a path ending in `target` and taking `args` as arrow parameters. */
   def apply(args: Seq[Type] = Seq.empty, target: Constructor with Path): Type with Path =
     args.foldRight[Type with Organized with Path](target) {
       case (arg, result) => new Arrow(arg, result) with Path
     }
 }
 
+/** Helper methods to organize types. */
 object Organized {
+  /** Checks, if a type is (subtype-)equal to Omega */
   private def isOmega(ty: Type): Boolean =
     ty match {
       case Omega => true
@@ -44,10 +58,11 @@ object Organized {
       case _ => false
     }
 
+  /** Appends to sequences of paths. */
   final def addPaths(xs: Seq[Type with Path], ys: Seq[Type with Path]): Seq[Type with Path] =
     xs.toStream.append(ys.toStream)
 
-
+  /** Organizes any type into an intersection of paths. */
   final def apply(t: Type): Type with Organized =
     t match {
       case ot : Organized => ot
@@ -71,6 +86,7 @@ object Organized {
         intersect(Organized(sigma).paths.append(Organized(tau).paths))
     }
 
+    /** Builds an organized type out of an intersection of paths. */
     final def intersect(paths: Seq[Type with Organized with Path]): Type with Organized =
       paths match {
         case Seq() => Omega
@@ -83,10 +99,15 @@ object Organized {
       }
 }
 
-
-
+/** Subtyping based on a taxonomy of type constructors.
+  * @param taxonomicSubtypesOf the taxonomy, where each constructor name is mapped to its directly smaller successors.
+  */
 case class SubtypeEnvironment(taxonomicSubtypesOf: Map[String, Set[String]]) {
 
+  /** Computes a transitive closure step of a taxonomy.
+    * For `x, y, z` with `y` in `state(x)` and `z` in `state(y)` we have `z` in `transitiveClosureStep(state)._2(x)`.
+    * @return the new taxonomy and a boolean indicating if any new entries had to be added.
+    */
   final private def transitiveClosureStep(state: Map[String, Set[String]]): (Boolean, Map[String, Set[String]]) = {
     state.foldLeft((false, state)) {
       case ((hasChanged, newState), (sigma, currentSubtypes)) =>
@@ -98,11 +119,15 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: Map[String, Set[String]]) {
     }
   }
 
+  /** Computes the reflexive closure of a taxonomy.
+    * For any `x`, `x` is in `reflexiveClosure(state)(x)`.
+    */
   final private def reflexiveClosure(state: Map[String, Set[String]]): Map[String, Set[String]] =
     state.map {
       case (sigma, taus) => (sigma, taus + sigma)
     }.withDefault(x => Set(x))
 
+  /** The reflexive transtivie closure of the taxonomy passed in the constructor. */
   lazy private val closedEnvironment: Map[String, Set[String]] =
     reflexiveClosure(
       Stream.iterate[(Boolean, Map[String, Set[String]])]((true, taxonomicSubtypesOf))(x => transitiveClosureStep(x._2))
@@ -111,23 +136,33 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: Map[String, Set[String]]) {
         ._2)
 
 
+  /** Functional representation of the taxonomy under reflexive transitive closure. */
   lazy val transitiveReflexiveTaxonomicSubtypesOf: String => Set[String] = closedEnvironment.apply
 
+  /** Type class to make types (subtype-)comparable */
   sealed trait TypeRelationOf {
-    def isSupertype(tau: Type): Boolean
-    def isSubtype(tau: Type): Boolean
+    def isSupertypeOf(tau: Type): Boolean
+    def isSubtypeOf(tau: Type): Boolean
   }
 
+  /** Type comparison for decompsed paths */
   sealed private class SupertypesOfPath(pathArgs: Seq[Type], tgt: Constructor) {
+    /** All constructor names subtype-related of the target constructor */
     private lazy val tgtSubs = transitiveReflexiveTaxonomicSubtypesOf(tgt.name)
 
+    /** Checks, if another decomposed path `p'` can possibly be subtype-related to the path `p` given to the constructor:
+      * is it possible, that `p' <= p`?
+      * For this, parameter counts must be equal, `p` and `p'` must end in a subtype-related constructors and
+      * all parameters of `p'` must be greater or equal to those of `p`.
+      */
     private def relevant(subArgs: Seq[Type], subTgt: Constructor): Boolean =
       (subArgs.size == pathArgs.size) &&
         tgtSubs(subTgt.name) &&
         subArgs.par.zip(pathArgs.par).forall {
-          case (subArg, pathArg) => subArg.isSupertype(pathArg)
+          case (subArg, pathArg) => subArg.isSupertypeOf(pathArg)
         }
 
+    /** Test, if the path given to the constructor is greater or equal to the intersection of `taus`. */
     def isSuperTypeOf(taus: Seq[(Seq[Type], Constructor)]): Boolean = {
       taus
         .toStream
@@ -142,15 +177,16 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: Map[String, Set[String]]) {
                       args1.zip(args2).map { case (arg1, arg2) => Intersection(arg1, arg2) }
                   }
                 .zip(tgt.arguments)
-                .forall { case (arg, tgtArg) => tgtArg.isSupertype(arg) }
+                .forall { case (arg, tgtArg) => tgtArg.isSupertypeOf(arg) }
             }
         }
 
     }
   }
 
+  /** Instance of the subtype relation type class. */
   implicit class toTypeRelationOf(sigma: Type) extends TypeRelationOf {
-    def isSupertype(tau: Type): Boolean = {
+    def isSupertypeOf(tau: Type): Boolean = {
       val organizedTau =
         Organized(tau).paths.map {
           case Path(args, tgt) => (args, tgt)
@@ -164,33 +200,41 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: Map[String, Set[String]]) {
         case _ => true
       }
     }
-    def isSubtype(tau: Type): Boolean =
-      toTypeRelationOf(tau).isSupertype(sigma)
+    def isSubtypeOf(tau: Type): Boolean =
+      toTypeRelationOf(tau).isSupertypeOf(sigma)
   }
 }
 
-
-
+/** Taxonomies are relations between constructor names.
+  * For a taxonomy t we have `'C <= 'D` if `"D"` is in `t("C")`.
+  * Subtyping will arange the transitive reflexive closure of taxonomies.
+  */
 sealed trait Taxonomy extends (String => Set[String]) {
+  /** The finite map representation of this taxonomy */
   val underlyingMap: Map[String, Set[String]]
 
+  /** Merges this taxonomy with `other` and return a new taxonomy, containing the entries of both. */
   def merge(other: Taxonomy): Taxonomy
+  /** Merges this taxonomy with `other` and return a new taxonomy, containing the entries of both. */
   def merge(other: NonEmptyTaxonomy): NonEmptyTaxonomy
 
+  /** Looks up a constructor name in this taxonomy, returning all directly related constructor names. */
   def apply(s: String): Set[String] = underlyingMap.getOrElse(s, Set.empty)
 }
 
-
+/** A non empty taxonomy with a marked root node */
 sealed trait NonEmptyTaxonomy extends Taxonomy { self =>
-  val underlyingMap: Map[String, Set[String]]
+  /** The marked root node */
   protected val head: String
 
+  /** Adds a constructor name to the relation for the marked root node. */
   def addSubtype(entry: String): NonEmptyTaxonomy =
     new NonEmptyTaxonomy {
       val underlyingMap = self.underlyingMap.updated(self.head, self(self.head) + entry)
       val head: String = self.head
     }
 
+  /** Adds multiple constructor names to the relation for the marked root node. */
   def addSubtypes(entries: NonEmptyTaxonomy): NonEmptyTaxonomy =
     new NonEmptyTaxonomy {
       val underlyingMap =
@@ -201,6 +245,9 @@ sealed trait NonEmptyTaxonomy extends Taxonomy { self =>
       val head: String = self.head
     }
 
+  /** Merges this taxonomy with `other` and return a new taxonomy, containing the entries of both.
+    * Keeps the current root node.
+    */
   override def merge(entries: Taxonomy): NonEmptyTaxonomy =
     new NonEmptyTaxonomy {
       val underlyingMap =
@@ -209,16 +256,22 @@ sealed trait NonEmptyTaxonomy extends Taxonomy { self =>
         }
       val head: String = self.head
     }
+  /** Merges this taxonomy with `other` and return a new taxonomy, containing the entries of both.
+    * Keeps the current root node.
+    */
   override def merge(entries: NonEmptyTaxonomy): NonEmptyTaxonomy =
     merge(entries.asInstanceOf[Taxonomy])
 }
 
+/** Helper to construct new taxonomies. */
 object Taxonomy {
+  /** Starts a new non-empty taxonomy for the constructor name `superType`. */
   def apply(superType: String): NonEmptyTaxonomy =
     new NonEmptyTaxonomy {
       val underlyingMap: Map[String, Set[String]] = Map.empty
       val head: String = superType
     }
+  /** Returns a new empty taxonomy. */
   def empty: Taxonomy =
     new Taxonomy {
       val underlyingMap: Map[String, Set[String]] = Map.empty

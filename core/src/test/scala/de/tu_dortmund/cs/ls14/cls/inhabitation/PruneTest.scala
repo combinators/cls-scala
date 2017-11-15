@@ -25,7 +25,7 @@ class PruneTest extends FunSpec {
         )
     )
 
-  val taxonomy =
+  val taxonomy: Taxonomy =
     Taxonomy("Int")
       .merge(Taxonomy("Garbage1"))
       .merge(Taxonomy("Garbage2"))
@@ -46,11 +46,11 @@ class PruneTest extends FunSpec {
       it("should only unroll to Tree(f, Tree(x))") {
         assert(
           TreeGrammarEnumeration(results, tgt).values ==
-            (0, Stream.empty[Tree]) #::
-              (0, Stream.empty[Tree]) #::
-              (0, Stream.empty[Tree]) #::
-              (1, Tree("f", Tree("x")) #:: Stream.empty[Tree]) #::
-              (0, Stream.empty[Tree]) #::
+            (BigInt(0), Stream.empty[Tree]) #::
+              (BigInt(0), Stream.empty[Tree]) #::
+              (BigInt(0), Stream.empty[Tree]) #::
+              (BigInt(1), Tree("f", Tree("x")) #:: Stream.empty[Tree]) #::
+              (BigInt(0), Stream.empty[Tree]) #::
               Stream.empty[(Int, Stream[Tree])]
         )
       }

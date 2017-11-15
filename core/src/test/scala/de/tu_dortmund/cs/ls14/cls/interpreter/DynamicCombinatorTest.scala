@@ -14,7 +14,7 @@ class DynamicCombinatorTest extends FunSpec {
     }
     @combinator object Show {
       def apply(x: Int): String = x.toString
-      val semanticType = ('Sense =>: 'Sense) :&: ('NonSense =>: 'NonSense)
+      val semanticType: Type = ('Sense =>: 'Sense) :&: ('NonSense =>: 'NonSense)
     }
   }
 
@@ -67,7 +67,7 @@ class DynamicCombinatorTest extends FunSpec {
 
   class IncrementCombinator(delta: Int, semantics: Type) {
     def apply(x: Int): Int = x + delta
-    val semanticType = semantics
+    val semanticType: Type = semantics
   }
 
   describe("The reflected repository with two IncrementCombinator instances") {
