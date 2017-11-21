@@ -37,7 +37,7 @@ lazy val examples = (Project(id = "cls-scala-examples", base = file("examples"))
       PlayKeys.playMonitoredFiles ++= (sourceDirectories in (Compile, TwirlKeys.compileTemplates)).value
     ).dependsOn(core)
 
-lazy val core = (Project(id = "cls-scala", base = file("core")))
+lazy val core = (Project(id = "cls-scala", base = file(".")))
     .settings(commonSettings: _*)
     .settings(
       moduleName := "cls-scala",
@@ -50,14 +50,6 @@ lazy val core = (Project(id = "cls-scala", base = file("core")))
         "org.scalatest" %% "scalatest" % "3.0.1" % "test"
       )
     )
-
-lazy val root = (Project(id = "cls-scala-root", base = file(".")))
-  .settings(commonSettings: _*)
-  .settings(noPublishSettings: _*)
-  .aggregate(core, examples)
-  .settings(
-    moduleName := "cls-scala-root"
-  )
 
 
 lazy val publishSettings = Seq(
