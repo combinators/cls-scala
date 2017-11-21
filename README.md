@@ -3,7 +3,7 @@
 
 This project implements the Combinatory Logic Synthesizer (CL)S framework in Scala.
 
-For more information see our [documentation project](https://github.com/combinators/cls-scala-docs).
+For more information see our [documentation project](https://combinators.github.io/).
 
 Existing users please refer to the [CHANGELOG](CHANGELOG.md) for news.
 
