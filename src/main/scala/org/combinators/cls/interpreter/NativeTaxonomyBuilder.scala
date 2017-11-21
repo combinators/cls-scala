@@ -6,6 +6,8 @@ import scala.reflect.runtime.universe._
 
 /** Builds a taxonomy out of native Scala types using reflection.
   * If we add A and B, we have `B in taxonomy(A) iff A <: B`.
+  * Used by [[ReflectedRepository]] to automatically add subtype information, so you probably don't ever
+  * have to use this.
   */
 class NativeTaxonomyBuilder(types: Set[Type] = Set.empty) {
 
@@ -30,7 +32,6 @@ class NativeTaxonomyBuilder(types: Set[Type] = Set.empty) {
 
     types.foldLeft((Taxonomy.empty, Set.empty[Type])) {
       case ((taxonomy, inserted), ty) =>
-        val tyName = nativeTypeOf(ty).name
         val newTaxonomy = inserted.foldLeft(taxonomy) {
           case (newTaxonomy, otherType) =>
             addTypeIfLte(addTypeIfLte(newTaxonomy, ty, otherType), otherType, ty)
