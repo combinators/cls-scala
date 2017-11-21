@@ -51,52 +51,10 @@ lazy val core = (Project(id = "cls-scala", base = file("core")))
       )
     )
 
-lazy val presentationPlayGit = (Project(id = "cls-scala-presentation-play-git", base = file(".") / "presentation" / "play-git"))
-  .settings(commonSettings: _*)
-  .enablePlugins(SbtTwirl)
-  .enablePlugins(PlayScala)
-  .disablePlugins(PlayLayoutPlugin)
-  .dependsOn(core)
-  .settings(
-    moduleName := "cls-scala-presentation-play-git",
-
-    libraryDependencies ++= Seq(
-      "org.eclipse.jgit" % "org.eclipse.jgit" % "4.8.0.201706111038-r",
-      "org.webjars" %% "webjars-play" % "2.6.1",
-      "org.webjars" % "bootstrap" % "3.3.7-1"
-    ),
-    sourceDirectories in (Compile, TwirlKeys.compileTemplates) := Seq(sourceDirectory.value / "main" / "html-templates")
-  )
-
-lazy val templatingJava = (Project(id = "cls-scala-templating-java", base = file(".") / "templating" / "java"))
-  .settings(commonSettings: _*)
-  .dependsOn(core)
-  .enablePlugins(SbtTwirl)
-  .settings(
-    moduleName := "cls-scala-templating-java",
-
-    libraryDependencies ++= Seq(
-      "org.apache.commons" % "commons-text" % "1.1",
-      "com.github.javaparser" % "javaparser-core" % "3.5.3"
-    )
-  )
-
-lazy val templatingPython = (Project(id = "cls-scala-templating-python", base = file(".") / "templating" / "python"))
-  .settings(commonSettings: _*)
-  .dependsOn(core)
-  .enablePlugins(SbtTwirl)
-  .settings(
-    moduleName := "cls-scala-templating-python",
-
-    libraryDependencies ++= Seq(
-      "org.apache.commons" % "commons-text" % "1.1"
-    )
-  )
-
 lazy val root = (Project(id = "cls-scala-root", base = file(".")))
   .settings(commonSettings: _*)
   .settings(noPublishSettings: _*)
-  .aggregate(core, presentationPlayGit, templatingJava, templatingPython, examples)
+  .aggregate(core, examples)
   .settings(
     moduleName := "cls-scala-root"
   )
