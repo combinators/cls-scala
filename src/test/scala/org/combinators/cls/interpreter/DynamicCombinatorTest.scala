@@ -1,8 +1,8 @@
-package de.tu_dortmund.cs.ls14.cls.interpreter
+package org.combinators.cls.interpreter
 
 import org.scalatest._
 
-import de.tu_dortmund.cs.ls14.cls.types._
+import org.combinators.cls.types._
 import syntax._
 
 

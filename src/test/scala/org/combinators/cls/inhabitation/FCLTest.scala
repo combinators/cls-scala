@@ -1,7 +1,7 @@
-package de.tu_dortmund.cs.ls14.cls.inhabitation
+package org.combinators.cls.inhabitation
 
 import org.scalatest._
-import de.tu_dortmund.cs.ls14.cls.types._
+import org.combinators.cls.types._
 
 class FCLTest extends FunSpec {
 

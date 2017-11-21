@@ -1,4 +1,4 @@
-package de.tu_dortmund.cs.ls14.cls.types
+package org.combinators.cls.types
 
 /** A path `p` conforms to the syntax:
   * <code>

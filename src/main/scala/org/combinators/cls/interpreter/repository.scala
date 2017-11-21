@@ -1,9 +1,9 @@
-package de.tu_dortmund.cs.ls14.cls.interpreter
+package org.combinators.cls.interpreter
 
 import java.util.UUID
 
-import de.tu_dortmund.cs.ls14.cls.inhabitation.{BoundedCombinatoryLogic, InhabitationAlgorithm, Tree, TreeGrammar, TreeGrammarEnumeration}
-import de.tu_dortmund.cs.ls14.cls.types.{Type, _}
+import org.combinators.cls.inhabitation.{BoundedCombinatoryLogic, InhabitationAlgorithm, Tree, TreeGrammar, TreeGrammarEnumeration}
+import org.combinators.cls.types.{Type, _}
 import shapeless.feat
 
 import scala.annotation.StaticAnnotation
@@ -205,8 +205,8 @@ trait ReflectedRepository[R] { self =>
           .collectFirst {
             case m if m.name.toString == "semanticType" =>
               tb.eval(
-                q"""import de.tu_dortmund.cs.ls14.cls.types.Type;
-                    import de.tu_dortmund.cs.ls14.cls.types.syntax._;
+                q"""import org.combinators.cls.types.Type;
+                    import org.combinators.ls14.cls.types.syntax._;
                     identity[Type]({
                       ${reify(instance).in(tb.mirror)}
                         .asInstanceOf[${typeTag.in(tb.mirror).tpe}]

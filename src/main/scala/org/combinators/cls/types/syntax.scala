@@ -1,4 +1,4 @@
-package de.tu_dortmund.cs.ls14.cls.types
+package org.combinators.cls.types
 
 /** Type class for syntactic sugar to construct intersection types. */
 trait TypeSyntax {

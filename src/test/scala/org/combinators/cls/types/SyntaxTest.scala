@@ -1,4 +1,4 @@
-package de.tu_dortmund.cs.ls14.cls.types
+package org.combinators.cls.types
 
 import org.scalatest.FunSpec
 import syntax._

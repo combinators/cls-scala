@@ -1,10 +1,10 @@
-package de.tu_dortmund.cs.ls14.cls.interpreter
+package org.combinators.cls.interpreter
 
-import de.tu_dortmund.cs.ls14.cls.inhabitation.Tree
+import org.combinators.cls.inhabitation.Tree
 import org.scalatest._
 
 import scala.reflect.runtime.universe.{Type => UType, _}
-import de.tu_dortmund.cs.ls14.cls.types._
+import org.combinators.cls.types._
 import syntax._
 
 class GenericId[A] {
@@ -54,7 +54,7 @@ class InterpreterTest extends FunSpec {
     }
     @combinator object repeatedStart {
       def apply: Double = 42
-      val semanticType = 'A
+      val semanticType: Type = 'A
     }
     val repatedTaxonomy: Taxonomy = Taxonomy("A").addSubtype("B")
   }

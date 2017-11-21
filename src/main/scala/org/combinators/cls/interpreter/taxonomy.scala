@@ -1,6 +1,6 @@
-package de.tu_dortmund.cs.ls14.cls.interpreter
+package org.combinators.cls.interpreter
 
-import de.tu_dortmund.cs.ls14.cls.types.Taxonomy
+import org.combinators.cls.types.Taxonomy
 import ReflectedRepository._
 import scala.reflect.runtime.universe._
 

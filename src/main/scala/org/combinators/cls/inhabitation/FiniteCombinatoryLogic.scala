@@ -1,6 +1,6 @@
-package de.tu_dortmund.cs.ls14.cls.inhabitation
+package org.combinators.cls.inhabitation
 
-import de.tu_dortmund.cs.ls14.cls.types._
+import org.combinators.cls.types._
 
 /** Type inhabitation for finite combinatory logic (FCL) */
 class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: Repository) {

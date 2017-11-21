@@ -1,6 +1,6 @@
-package de.tu_dortmund.cs.ls14.cls
+package org.combinators.cls
 
-import de.tu_dortmund.cs.ls14.cls.types._
+import org.combinators.cls.types._
 
 package object inhabitation {
   /** Repositories map combinator names to types */

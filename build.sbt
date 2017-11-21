@@ -2,7 +2,7 @@ import sbt.Keys._
 import sbt.Resolver
 
 lazy val commonSettings = Seq(
-  organization := "de.tu_dortmund.cs.ls14",
+  organization := "org.combinators",
   releaseVersionBump := sbtrelease.Version.Bump.Minor,
   releaseIgnoreUntrackedFiles := true,
 
@@ -25,19 +25,14 @@ lazy val commonSettings = Seq(
   )
 ) ++ publishSettings
 
-lazy val examples = (Project(id = "cls-scala-examples", base = file("examples")))
+lazy val examples = (Project(id = "examples", base = file("examples")))
     .settings(commonSettings: _*)
     .settings(noPublishSettings: _*)
-    .enablePlugins(SbtTwirl)
-    .enablePlugins(PlayScala)
-    .disablePlugins(PlayLayoutPlugin)
     .settings(
-      moduleName := "cls-scala-examples",
-      libraryDependencies += guice,
-      PlayKeys.playMonitoredFiles ++= (sourceDirectories in (Compile, TwirlKeys.compileTemplates)).value
-    ).dependsOn(core)
+      moduleName := "examples"
+    ).dependsOn(root)
 
-lazy val core = (Project(id = "cls-scala", base = file(".")))
+lazy val root = (Project(id = "cls-scala", base = file(".")))
     .settings(commonSettings: _*)
     .settings(
       moduleName := "cls-scala",
@@ -64,9 +59,9 @@ lazy val publishSettings = Seq(
     else
       Some("releases" at nexus + "service/local/staging/deploy/maven2")
   }.value },
-  homepage := Some(url("https://www.github.com/JanBessai/cls-scala")),
+  homepage := Some(url("https://combinators.org")),
   licenses := Seq("Apache 2" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt")),
-  scmInfo := Some(ScmInfo(url("https://github.com/JanBessai/cls-scala"), "scm:git:git@github.com:JanBessai/cls-scala.git")),
+  scmInfo := Some(ScmInfo(url("https://www.github.com/combinators/cls-scala"), "scm:git:git@github.com:combinators/cls-scala.git")),
   pomExtra := (
     <developers>
       <developer>
@@ -89,8 +84,8 @@ lazy val publishSettings = Seq(
 )
 
 lazy val noPublishSettings = Seq(
-  publish := (),
-  publishLocal := (),
+  publish := Seq.empty,
+  publishLocal := Seq.empty,
   publishArtifact := false
 )
 
