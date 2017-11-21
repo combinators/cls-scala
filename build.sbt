@@ -17,6 +17,8 @@ lazy val commonSettings = Seq(
     Resolver.typesafeRepo("snapshots")
   ),
 
+  headerLicense := Some(HeaderLicense.ALv2("2017", "Jan Bessai")),
+
   scalacOptions ++= Seq(
     "-unchecked",
     "-deprecation",
