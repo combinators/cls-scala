@@ -3,25 +3,17 @@
 
 This project implements the Combinatory Logic Synthesizer (CL)S framework in Scala.
 
-TODO: More text & references here.
+For more information see our [documentation project](https://github.com/combinators/cls-scala-docs).
+
+Existing users please refer to the [CHANGELOG](CHANGELOG.md) for news.
 
 ## Installation
 
-You can create a new sbt project using:
+Add the following dependency to your existing sbt project: 
 ```scala
-  TODO: g8 template instruction here
+libraryDependencies += "org.combinators" %% "cls-scala" % "<VERSION>"
 ```
-
-Alternatively, you can add the following dependencies to your existing sbt project: 
-```scala
-libraryDependencies ++= 
-  Seq("de.tu_dortmund.cs.ls14" %% "cls-scala" % "<VERSION>", // for the core algorithm
-      "de.tu_dortmund.cs.ls14" %% "cls-scala-presentation" % "<VERSION>", // for a website presenting inhabitation results
-      "de.tu_dortmund.cs.ls14" %% "cls-scala-templating-java" % "<VERSION>", // for java code templating support
-      "de.tu_dortmund.cs.ls14" %% "cls-scala-templating-python" % "<VERSION>" // for python code templating support 
-  )
-```
-In each line `<VERSION>` has to be replaced by the version you want.
+The string `<VERSION>` has to be replaced by the version you want.
 You can search for released versions [here](http://search.maven.org/#search%7Cga%7C1%7Ccls-scala).
 
 To obtain the latest unreleased development version, clone the repository and run `sbt publishLocal`.
@@ -29,19 +21,26 @@ To obtain the latest unreleased development version, clone the repository and ru
 Currently, Scala 2.11 and 2.12 are supported.
 
 ## Examples
-Can be found in the [examples project](examples/src/main/scala/de/tu_dortmund/cs/ls14/cls) and the [tests](core/src/test/scala//src/main/scala/de/tu_dortmund/cs/ls14/cls).
+
+Can be found in the [examples project](examples/src/main/scala/org/combinators/cls/examples) and the [tests](core/src/test/scala/org/combinators/cls).
+
+##### Got a new example?
+If it is contained within one file, consider adding it to ours: 
+join the [chat](https://gitter.im/combinators/cls-scala) or just open a pull request.
 
 ## Help and Contributions
 
 Join [combinators/cls-scala](https://gitter.im/combinators/cls-scala) on Gitter.
 
 ### Main Authors
+
 - Jan Bessai
 - Boris Düdder
 - Geroge T. Heineman
 
 ### Contributers
 
-### Your name here
+-
+##### Your name here?
 Just the usual: open pull requests and or issues.
-Feel free to add yourself to the list in this file, if you contribute something.
+Feel free to add yourself to the list in this file, if you contributed something.
