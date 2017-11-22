@@ -22,7 +22,8 @@ Currently, Scala 2.11 and 2.12 are supported.
 
 ## Examples
 
-Can be found in the [examples project](examples/src/main/scala/org/combinators/cls/examples) and the [tests](core/src/test/scala/org/combinators/cls).
+Can be found in the [examples project](examples/src/main/scala/org/combinators/cls/examples) and 
+the [tests](src/test/scala/org/combinators/cls).
 
 ##### Got a new example?
 If it is contained within one file, consider adding it to ours: 
