@@ -6,8 +6,8 @@ lazy val commonSettings = Seq(
   releaseVersionBump := sbtrelease.Version.Bump.Minor,
   releaseIgnoreUntrackedFiles := true,
 
-  scalaVersion := "2.12.3",
-  crossScalaVersions := Seq("2.11.11", scalaVersion.value),
+  scalaVersion := "2.12.4",
+  crossScalaVersions := Seq("2.11.12", scalaVersion.value),
   releaseCrossBuild := true,
 
   resolvers ++= Seq(
