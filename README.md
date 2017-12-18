@@ -1,4 +1,4 @@
-# cls-scala
+# cls-scala ![build status](https://travis-ci.org/combinators/cls-scala.svg?branch=master)
 ## The Combinatory Logic Synthesizer (CL)S Framework
 
 This project implements the Combinatory Logic Synthesizer (CL)S framework in Scala.
