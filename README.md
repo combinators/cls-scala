@@ -1,4 +1,8 @@
-# cls-scala ![build status](https://travis-ci.org/combinators/cls-scala.svg?branch=master)
+# cls-scala
+[![Maven Central](https://img.shields.io/maven-central/v/org.combinators/cls-scala.svg)](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.combinators%22%20AND%20a%3A%22cls-scala%22)
+[![build status](https://travis-ci.org/combinators/cls-scala.svg?branch=master)](https://travis-ci.org/combinators/cls-scala)
+[![Coverage Status](https://coveralls.io/repos/github/combinators/cls-scala/badge.svg?branch=master)](https://coveralls.io/github/combinators/cls-scala?branch=master)
+[![Join the chat at https://gitter.im/combinators/cls-scala](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/combinators/cls-scala)
 ## The Combinatory Logic Synthesizer (CL)S Framework
 
 This project implements the Combinatory Logic Synthesizer (CL)S framework in Scala.
@@ -14,7 +18,7 @@ Add the following dependency to your existing sbt project:
 libraryDependencies += "org.combinators" %% "cls-scala" % "<VERSION>"
 ```
 The string `<VERSION>` has to be replaced by the version you want.
-You can search for released versions [here](http://search.maven.org/#search%7Cga%7C1%7Ccls-scala).
+You can search for released versions [here](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.combinators%22%20AND%20a%3A%22cls-scala%22).
 
 To obtain the latest unreleased development version, clone the repository and run `sbt publishLocal`.
 
