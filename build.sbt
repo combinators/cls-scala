@@ -38,8 +38,6 @@ lazy val root = (Project(id = "cls-scala", base = file(".")))
     .settings(commonSettings: _*)
     .settings(
       moduleName := "cls-scala",
-
-      crossScalaVersions := Seq("2.11.11", scalaVersion.value),
       libraryDependencies ++= Seq(
         "de.tu_dortmund.cs.ls14" %% "shapeless-feat" % "0.2.1",
         "org.scala-lang" % "scala-compiler" % scalaVersion.value,
