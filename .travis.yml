@@ -3,4 +3,6 @@ jdk:
   - oraclejdk8
   - openjdk8
 
-script: sbt +test
+script: sbt clean coverage +test coverageReport
+after_success:
+  - sbt coveralls
