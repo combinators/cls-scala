@@ -1,3 +1,7 @@
+### Version 2.0.1
+This version contains minor patches.
+- Method `removeEntriesWithArgument` is now non-final to allow logging in a debugger
+  inheriting from `FiniteCombinatoryLogic`
 ### Version 2.0.0
 This is the first public release of cls-scala.
 The most notable changes to prior (internal development) versions are:

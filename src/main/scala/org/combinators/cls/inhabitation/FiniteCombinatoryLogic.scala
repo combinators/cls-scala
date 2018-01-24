@@ -139,7 +139,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
         })
 
   /** Removes all entries of `grammar` where `arg` occurs in a right hand side. */
-  final def removeEntriesWithArgument(grammar: TreeGrammar, arg: Type): TreeGrammar =
+  def removeEntriesWithArgument(grammar: TreeGrammar, arg: Type): TreeGrammar =
     grammar.mapValues(entries => entries.filterNot(_._2.contains(arg)))
 
 
