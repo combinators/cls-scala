@@ -3,7 +3,7 @@ language: scala
 stages:
   - test
   - name: deploy
-    if: (type NOT IN (pull_request)) AND (tag IS present) AND (branch = master)
+    if: branch = master AND tag IS present AND NOT type IN (push, pull_request)
 
 script: sbt +test
 
