@@ -36,7 +36,7 @@ lazy val root = (Project(id = "cls-scala", base = file(".")))
     .settings(
       moduleName := "cls-scala",
       libraryDependencies ++= Seq(
-        "de.tu_dortmund.cs.ls14" %% "shapeless-feat" % "0.2.1",
+        "org.combinators" %% "shapeless-feat" % "0.2.2",
         "org.scala-lang" % "scala-compiler" % scalaVersion.value,
         "org.scalactic" %% "scalactic" % "3.0.4" % "test",
         "org.scalatest" %% "scalatest" % "3.0.4" % "test"
@@ -63,8 +63,3 @@ lazy val noPublishSettings = Seq(
   publishLocal := Seq.empty,
   publishArtifact := false
 )
-
-credentials in ThisBuild ++= (for {
-  username <- Option(System.getenv().get("SONATYPE_USERNAME"))
-  password <- Option(System.getenv().get("SONATYPE_PASSWORD"))
-} yield Credentials("Sonatype Nexus Repository Manager", "oss.sonatype.org", username, password)).toSeq
