@@ -41,7 +41,7 @@ Join [combinators/cls-scala](https://gitter.im/combinators/cls-scala) on Gitter.
 
 - Jan Bessai
 - Boris Düdder
-- Geroge T. Heineman
+- George T. Heineman
 
 ### Contributers
 
