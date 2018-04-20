@@ -43,7 +43,7 @@ class LabyrinthTest extends FunSpec {
       "up" -> ('Pos(positionRow, 'S(positionColumn)) =>: 'Free(positionRow, positionColumn) =>: 'Pos(positionRow, positionColumn)),
       "down" -> ('Pos(positionRow, positionColumn) =>: 'Free(positionRow, 'S(positionColumn)) =>: 'Pos(positionRow, 'S(positionColumn))),
       "left" -> ('Pos('S(positionRow), positionColumn) =>: 'Free(positionRow, positionColumn) =>: 'Pos(positionRow, positionColumn)),
-      "right" -> ('Pos(positionRow, positionColumn) =>: 'Free('S(positionRow), positionColumn) =>: 'Pos('S(positionRow), positionColumn)),
+      "right" -> ('Pos(positionRow, positionColumn) =>: 'Free('S(positionRow), positionColumn) =>: 'Pos('S(positionRow), positionColumn))
     )
 
 
