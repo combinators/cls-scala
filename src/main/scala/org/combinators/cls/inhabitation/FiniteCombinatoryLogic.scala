@@ -17,6 +17,7 @@
 package org.combinators.cls.inhabitation
 
 import org.combinators.cls.types._
+import shapeless.feat.Finite
 
 /** Type inhabitation for finite combinatory logic (FCL) */
 class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: Repository) {
@@ -32,6 +33,18 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     x
   }
 
+  private final val times: scala.collection.mutable.Map[String, BigInt] =
+    scala.collection.mutable.Map.empty[String, BigInt].withDefaultValue(0)
+  private def time[R](location: String)(x: => R) = {
+    /*val before = System.currentTimeMillis()
+    val forcedResult = x
+    val after = System.currentTimeMillis()
+    times.synchronized(times.update(location, times(location) + (after - before)))
+    //println(s"$location used:  ${after - before}")
+    forcedResult*/
+    x
+  }
+
   /** Splits `path` into (argument, target)-pairs, relevant for inhabiting `target`.
     * Relevant target components are path suffixes, which are supertypes of `target`.
     * <code>
@@ -40,7 +53,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     * </code>
     */
   private def relevantFor(target: Type with Organized,
-    path: Type with Organized with Path): Seq[(Seq[Type], Type with Path)] = {
+    path: Type with Organized with Path): Seq[(Seq[Type], Type with Path)] = time("relevantFor") {
     path match {
       case Path(args, tgt) =>
         args
@@ -54,26 +67,25 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
   /**
     * Computes the piecewise intersection of argument types.
     * Assumes all elements of `arguments` are of the same length.
+    * Example:
     * <code>
     *   intersectArguments(Seq('A, 'B =>: 'C :&: 'D), Seq('B, 'B =>: 'C :&: 'E)) =
     *     Seq('A :&: 'B, ('B =>: 'C) :&: ('B =>: 'D) :&: ('B =>: 'E))
     * </code>
+    * For performance reasons duplicate paths are not necessarily removed, so `=` above is modulo subtyping.
     */
-  private def intersectArguments(arguments: Seq[Seq[Type]]): Seq[Type with Organized] =
-    arguments match {
-      case Seq() => Seq.empty
-      case _ +: _ =>
-        val orgArguments = arguments.map(_.map(Organized(_)))
-        orgArguments.init.foldRight[Seq[Type with Organized]](orgArguments.last) {
-          case (args, rs) =>
-            rs.zip(args).map { case (arg, r) =>
-              arg.paths.foldLeft(r) { case (intersectedArgs, argPath) =>
-                if (argPath.isSupertypeOf(intersectedArgs)) intersectedArgs
-                else Organized.intersect(argPath +: intersectedArgs.paths)
-              }
-            }
-        }
+  private def intersectArguments(arguments: Seq[Seq[Type]]): Seq[Type with Organized] = time("intersecting arguments") {
+    def intersectPiecewise(xs: Seq[Type with Organized], ys: Seq[Type with Organized]) =
+      xs.zip(ys).map{
+        case (t1, t2) => Organized.intersect(t1.paths ++ t2.paths)
+      }
+    if (arguments.isEmpty) Seq.empty else {
+      arguments.tail.aggregate(arguments.head.map(Organized(_)))(
+        (xs, ys) => intersectPiecewise(xs, ys.map(Organized(_))),
+        intersectPiecewise
+      )
     }
+  }
 
   /**
     * Finds all piecewise intersections of argument sequences in `paths`, such that
@@ -87,46 +99,23 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     *     Seq('X :&: 'Z, P) #:: Seq('Y :&: 'Z, P) #:: Stream.empty
     * </code>
     */
-  final def covers(tgt: Type, paths: Stream[(Seq[Type], Type with Path)]): Stream[Seq[Type]] = {
-    final case class Step(args: Seq[Seq[Type]], tgt: Type with Organized, rest: Stream[(Seq[Type], Type with Path)])
-    def coversOfStep(step: Step): (Stream[Step], Stream[Seq[Type]]) = {
-      if (step.tgt.isSubtypeOf(tgt)) {
-        debugPrint(step.args, "---------------->>>> Args:")
-        debugPrint(intersectArguments(step.args), "---------------->>>> Intersected Args:")
-        debugPrint((step.tgt, tgt), "---------------->>>> Tgt (left <= right):")
-        (Stream.empty, intersectArguments(step.args) #:: Stream.empty[Seq[Type]])
-      }
-      else {
-        step.rest match {
-          case (_, newTgt) #:: others if step.tgt.isSubtypeOf(newTgt) =>
-            (step.copy(rest = others) #:: Stream.empty[Step], Stream.empty[Seq[Type]])
-          case (newArgs, newTgt) #:: others =>
-            (Step(newArgs +: step.args, Organized.intersect(newTgt +: step.tgt.paths), others) #::
-              step.copy(rest = others) #::
-              Stream.empty[Step],
-              Stream.empty[Seq[Type]]
-            )
-          case _ => (Stream.empty, Stream.empty)
-        }
-      }
-    }
-    def coversOf(currentArgs: Seq[Type],
-      currentTgt: Type with Organized,
-      otherPaths: Stream[(Seq[Type], Type with Path)]): Stream[Seq[Type]] = {
-      val start: (Stream[Step], Stream[Seq[Type]]) =
-        (Step(Seq(currentArgs), currentTgt, otherPaths) #:: Stream.empty[Step], Stream.empty)
-      val (iterating, stable) = Stream.iterate(start) {
-        case (steps, _) =>
-          val (newSteps, results) = steps.map(coversOfStep).unzip
-          (newSteps.flatten, results.flatten)
-      }.span(state => state._1.nonEmpty)
+  final def covers(tgt: Type with Organized, paths: Seq[(Seq[Type], Type with Path)]): Seq[Seq[Type]] = time("covers") {
+    val coveringArgs: Iterable[Finite[Seq[Type]]] =
+      tgt.paths.foldLeft(Map.empty[Type with Path, Set[Seq[Type]]]) {
+        case (r, toCover) if r.keys.exists(_.isSubtypeOf(toCover)) => r
+        case (r, toCover) => r.updated(toCover, paths.foldLeft(Set.empty[Seq[Type]]) {
+            case (s, (args, tgt)) if !s.contains(args) && tgt.isSubtypeOf(toCover) => s + args
+            case (s, _) => s
+          })
+      }.values
+        .map(xs => xs.aggregate(Finite.empty[Seq[Type]])((xs, x) => xs.:+:(Finite.singleton(x)), (x, y) => x :+: y))
 
-      (stable.head +: iterating).flatMap(_._2)
-    }
-
-    val pathPairs = paths.zip(paths.tails.toStream.tail)
-    pathPairs.flatMap {
-      case ((currentArgs, currentTgt), otherPaths) => coversOf(currentArgs, currentTgt, otherPaths)
+    if (coveringArgs.isEmpty || coveringArgs.exists(_.cardinality == 0)) Seq.empty else {
+      coveringArgs.view.tail.foldLeft(coveringArgs.head.map(Seq(_))) {
+        case (s, args) => (args :*: s).map { case (x, y) => x +: y }
+      }.map(intersectArguments)
+        .values
+        .distinct
     }
   }
 
@@ -150,10 +139,36 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     }
 
   /** Finds an entries of `grammar` where the left hand side is a subtype of `ty`. */
-  final def findSmallerEntry(grammar: TreeGrammar, ty: Type): Option[(Type, Set[(String, Seq[Type])])] =
+  final def findSmallerEntry(grammar: TreeGrammar, ty: Type): Option[(Type, Set[(String, Seq[Type])])] = time("findSmallerEntry") {
     grammar.find {
       case (k, _) => k.isSubtypeOf(ty)
     }
+  }
+
+  /** Rearranges intermediate results to a set of new grammar rules and recursive targets.
+    * Input format: a map containing combinator names and alternative recursive targets to use that combinator.
+    * Output format: a set of combinator names with the respective parameter types to inhabit for using the combinator,
+    * and a collection of all parameter type collections to use the combinators in the set.
+    * Example:
+    * <code>
+    *   newProductionsAndTargets(Map("c" -> Seq(Seq('A, 'B), Seq('C), Seq('A, 'B))), "d" -> Seq(), "e" -> Seq(Seq())) ==
+    *     (Set(("c", Seq('A, 'B)), ("c", Seq('C)), ("e", Seq())),
+    *      Stream.empty #:: ('C #:: Stream.empty) #:: ('A #:: 'B #:: Stream.empty) #:: Stream.empty
+    * </code>
+    */
+
+  final def newProductionsAndTargets(results: Map[String, Iterable[Seq[Type]]]):
+    (Set[(String, Seq[Type])], Stream[Stream[Type]]) = time("newProductionsAndTargets") {
+    results.foldLeft((Set.empty[(String, Seq[Type])], Stream.empty[Stream[Type]])){
+        case ((productions, targetLists), (combinatorName, newTargetLists)) =>
+          newTargetLists.foldLeft((productions, targetLists)) {
+            case ((nextProductions, nextTargetsLists), nextTargetList)
+              if !nextProductions.contains((combinatorName, nextTargetList)) =>
+              (nextProductions + ((combinatorName, nextTargetList)), nextTargetList.toStream #:: nextTargetsLists)
+            case (s, _) => s
+          }
+      }
+  }
 
   /** Performs a single inhabitation step.
     * Finds combinators which can inhabit `tgt`, adds their application as right hand sides for the left hand side `tgt`
@@ -168,7 +183,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     *         empty target streams indicate failure, while `Stream.empty #:: Stream.empty[Stream[Type]]` indicates
     *         success without fresh targets.
     */
-  final def inhabitStep(result: TreeGrammar, tgt: Type): (TreeGrammar, Stream[Stream[Type]]) = {
+  final def inhabitStep(result: TreeGrammar, tgt: Type): (TreeGrammar, Stream[Stream[Type]]) = time("inhabitStep") {
     debugPrint(tgt, ">>> Current target")
     debugPrint(result, ">>> Result so far")
     val knownSupertypes = findSupertypeEntries(result, tgt)
@@ -182,28 +197,26 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
           debugPrint(kv, ">>> Already present")
           (substituteArguments(result, tgt, kv._1), Stream.empty #:: Stream.empty[Stream[Type]]) // replace the target everywhere
         case None =>
-          val orgTgt = Organized(tgt)
+          val orgTgt = time("target organization") { Organized(tgt) }
 
-          val recursiveTargets =
+          val recursiveTargets: Map[String, Iterable[Seq[Type]]] =
             organizedRepository.par.mapValues { cType =>
               debugPrint(orgTgt, "Covering component")
               debugPrint(cType.paths, "Using paths")
-              cType.paths
+              val relevant = cType.paths
                 .flatMap(relevantFor(orgTgt, _))
                 .map(debugPrint(_, "Of those are relevant"))
-                .groupBy(x => x._1.size)
-                .mapValues(pathComponents => covers(orgTgt, pathComponents))
-                .values.flatMap(_.distinct)
-            }
-          val newProductions: Set[(String, Seq[Type])] =
-            recursiveTargets.toSeq.flatMap { case (c, tgts) =>
-              tgts.map((c, _))
-            }.toSet.seq
 
-          val newTargets: Stream[Stream[Type]] =
-            recursiveTargets.values.flatMap { tgtss =>
-              tgtss.toStream.map(tgts => tgts.toStream)
-            }.toStream
+              if (orgTgt.paths.exists(tgtP => !relevant.exists(r => r._2.isSubtypeOf(tgtP)))) {
+                Iterable.empty
+              } else {
+                relevant
+                  .groupBy(x => x._1.size)
+                  .mapValues(pathComponents => covers(orgTgt, pathComponents))
+                  .values.flatten
+              }
+            }.toMap.seq
+          val (newProductions, newTargets) = newProductionsAndTargets(recursiveTargets)
           newTargets.map(debugPrint(_, "Recursively inhabiting"))
 
           (result + (tgt -> newProductions), newTargets)
@@ -276,6 +289,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
   def inhabit(targets: Type*): TreeGrammar = {
     debugPrint(repository, "Repository: ")
     val resultGrammar = debugPrint(inhabitRec(targets: _*).last._1, "before pruning")
+    times.foreach(println(_))
     val resultGrammarWithAllTargets = targets.foldLeft(resultGrammar)(ensureTargetExistsIfEqualTypePresent)
     prune(resultGrammarWithAllTargets)
   }
@@ -284,7 +298,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     * A left hand side is productive, if any of its right hand sides only requires arguments, which are productive
     * left hand sides of the grammar.
     */
-  final def groundTypesOf(grammar: TreeGrammar): Set[Type] = {
+  final def groundTypesOf(grammar: TreeGrammar): Set[Type] = time("groundTypes") {
     def groundStep(previousGroundTypes: Set[Type]): Set[Type] = {
         grammar.foldLeft(previousGroundTypes) {
           case (s, (k, vs))
@@ -306,7 +320,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
   /** Removes all unproductive left hand sides in `grammar`.
     * @see `FiniteCombinatoryLogic.groundTypesOf(TreeGrammar)` for a description of productivity.
     */
-  def prune(grammar: TreeGrammar): TreeGrammar = {
+  def prune(grammar: TreeGrammar): TreeGrammar = time("prune") {
     lazy val groundTypes = groundTypesOf(grammar)
     grammar.foldLeft[TreeGrammar](Map.empty) {
       case (g, (k, vs)) =>

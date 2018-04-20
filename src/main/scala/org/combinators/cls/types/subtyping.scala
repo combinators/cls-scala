@@ -23,12 +23,12 @@ package org.combinators.cls.types
   * where each `sigma_i` is an arbitrary intersection type without variables.
   */
 sealed trait Path extends Organized { self: Type =>
-  final val paths: Stream[Type with Path] = this #:: Stream.empty[Type with Path]
+  final val paths: Seq[Type with Path] = Seq(this)
 }
 
 /** A type is organized iff it is syntactically identical to an intersection of paths. */
 trait Organized { self: Type =>
-  val paths: Stream[Type with Path]
+  val paths: Seq[Type with Path]
 }
 
 /** Helper methods to (de-)construct paths from (/into) arguments and targets of arrows. */
@@ -76,7 +76,7 @@ object Organized {
 
   /** Appends to sequences of paths. */
   final def addPaths(xs: Seq[Type with Path], ys: Seq[Type with Path]): Seq[Type with Path] =
-    xs.toStream.append(ys.toStream)
+    xs ++ ys
 
   /** Organizes any type into an intersection of paths. */
   final def apply(t: Type): Type with Organized =
@@ -99,20 +99,17 @@ object Organized {
       case Arrow(src, tgt) =>
         intersect(Organized(tgt).paths map (tgt => new Arrow(src, tgt) with Path))
       case Intersection(sigma, tau) =>
-        intersect(Organized(sigma).paths.append(Organized(tau).paths))
+        intersect(Organized(sigma).paths.toStream.append(Organized(tau).paths.toStream))
     }
 
     /** Builds an organized type out of an intersection of paths. */
     final def intersect(paths: Seq[Type with Organized with Path]): Type with Organized =
-      paths match {
-        case Seq() => Omega
-        case _ =>
-          paths.toStream.reduce[Type with Organized] {
-            case (p1, p2) => new Intersection(p1, p2) with Organized {
-              val paths = p1.paths.append(p2.paths)
-            }
+      paths.reduceOption[Type with Organized] {
+          case (p1, p2) => new Intersection(p1, p2) with Organized {
+            val paths = p1.paths ++ p2.paths
           }
-      }
+        }.getOrElse(Omega)
+
 }
 
 /** Subtyping based on a taxonomy of type constructors.
@@ -208,12 +205,8 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: Map[String, Set[String]]) {
           case Path(args, tgt) => (args, tgt)
         }
 
-      Organized(sigma).paths match {
-        case paths@(_ #:: _) =>
-          paths.forall {
-            case Path(srcs, tgt) => new SupertypesOfPath(srcs, tgt).isSuperTypeOf(organizedTau)
-          }
-        case _ => true
+      Organized(sigma).paths.forall {
+        case Path(srcs, tgt) => new SupertypesOfPath(srcs, tgt).isSuperTypeOf(organizedTau)
       }
     }
     def isSubtypeOf(tau: Type): Boolean =
