@@ -19,9 +19,15 @@ package org.combinators.cls.types
 import shapeless.feat.{Enumeration, Finite}
 
 /** Things which induce finite spaces of substitutions. */
-trait FiniteSubstitutionSpace {
+trait FiniteSubstitutionSpace { self =>
   /** Obtains the space of well formed substitutions induced by `description`. */
   def allowedSubstitutions: Finite[Variable => Type]
+
+  /** Adds an allowed substitution to this space. */
+  def addOption(substitution: Variable => Type): FiniteSubstitutionSpace = new FiniteSubstitutionSpace {
+    override def allowedSubstitutions: Finite[Variable => Type] =
+      self.allowedSubstitutions :+: Finite.singleton(substitution)
+  }
 }
 
 /** Helpers to construct finite substitution spaces. */
