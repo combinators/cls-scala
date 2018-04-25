@@ -40,8 +40,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     val forcedResult = x
     val after = System.currentTimeMillis()
     times.synchronized(times.update(location, times(location) + (after - before)))
-    //println(s"$location used:  ${after - before}")
-    forcedResult*/
+    debugPrint(s"$location used:  ${after - before}",  forcedResult)*/
     x
   }
 
@@ -318,7 +317,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
   def inhabit(targets: Type*): TreeGrammar = {
     debugPrint(repository, "Repository: ")
     val resultGrammar = debugPrint(inhabitRec(targets: _*).last._1, "before pruning")
-    times.foreach(println(_))
+    times.foreach(debugPrint(_))
     val resultGrammarWithAllTargets = targets.foldLeft(resultGrammar)(ensureTargetExistsIfEqualTypePresent)
     prune(resultGrammarWithAllTargets)
   }
