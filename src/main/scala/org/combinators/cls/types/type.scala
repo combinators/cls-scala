@@ -32,7 +32,7 @@ sealed trait Type {
 /** Represents intersection type constructors. */
 case class Constructor(name: String, arguments: Type*) extends Type {
   def toStringPrec(prec: Int): String = {
-    if (arguments.isEmpty) s"$name" else s"$name(${arguments.mkString(",")})"
+    if (arguments.isEmpty) s"$name" else s"$name(${arguments.mkString(", ")})"
   }
 }
 
