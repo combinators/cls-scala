@@ -72,12 +72,11 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     *   intersectArguments(Seq('A, 'B =>: 'C :&: 'D), Seq('B, 'B =>: 'C :&: 'E)) =
     *     Seq('A :&: 'B, ('B =>: 'C) :&: ('B =>: 'D) :&: ('B =>: 'E))
     * </code>
-    * For performance reasons duplicate paths are not necessarily removed, so `=` above is modulo subtyping.
     */
   private def intersectArguments(arguments: Seq[Seq[Type]]): Seq[Type with Organized] = time("intersecting arguments") {
     def intersectPiecewise(xs: Seq[Type with Organized], ys: Seq[Type with Organized]) =
       xs.zip(ys).map{
-        case (t1, t2) => Organized.intersect(t1.paths ++ t2.paths)
+        case (t1, t2) => Organized.intersect((t1.paths ++ t2.paths).minimize.toSeq)
       }
     if (arguments.isEmpty) Seq.empty else {
       arguments.tail.aggregate(arguments.head.map(Organized(_)))(
@@ -87,23 +86,52 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     }
   }
 
+  /** Typeclass instance to minimize an argument collection wrt. to its cardinality under the constraint
+    * that inhabitant sets remain equal.
+    * We have:
+    * <code>
+    *   forall argvect in args,
+    *     exists argvect' in args.minimize,
+    *       forall i, argvect(i) <= argvect'(i)
+    * </code>
+    * Example:
+    * <code>
+    *   Seq(Seq('A :&: 'B, 'C), Seq('A, 'D), Seq('A :&: 'B, 'C :&: D)).minimize =
+    *     Seq(Seq('A :&: 'B, 'C), Seq('A, 'D))
+    * </code>
+    */
+  implicit class MinimalArguments(args: Seq[Seq[Type with Organized]]) extends Minimizable {
+    type T = Seq[Type with Organized]
+    def minimize: Set[T] = {
+      def checkArgvectorRelation(lesserArgVect: Seq[Type], greaterArgVect: Seq[Type]): Boolean =
+        lesserArgVect.view.zip(greaterArgVect).forall {
+          case (lesserArg, greaterArg) => lesserArg.isSubtypeOf(greaterArg)
+        }
+      args.foldLeft(Set.empty[Seq[Type with Organized]]) {
+        case (result, argVect) if result.exists(checkArgvectorRelation(argVect, _)) => result
+        case (result, argVect) =>
+          result.filterNot(checkArgvectorRelation(_, argVect)) + argVect
+      }
+    }
+  }
+
   /**
     * Finds all piecewise intersections of argument sequences in `paths`, such that
     * correspondingly intersected targets are subtypes of `tgt`.
-    * Avoids selecting redundant paths.
+    * Avoids selecting redundant paths and argument vectors.
     * Assumes all argument sequences in `paths` are of equal length.
     * Example:
     * <code>
     *   covers('A :&: 'B,
-    *     (Seq('X, P), 'A) #:: (Seq('Y, Q), 'A) #:: (Seq('Z, P), 'B) #:: Stream.empty) ==
-    *     Seq('X :&: 'Z, P) #:: Seq('Y :&: 'Z, P) #:: Stream.empty
+    *     (Seq('X, P), 'A) +: (Seq('Y, Q), 'A) +: (Seq('Z, P), 'B) +: Seq.empty) ==
+    *     Seq('X :&: 'Z, P) +: Seq('Y :&: 'Z, P) +: Seq.empty
     * </code>
     */
   final def covers(tgt: Type with Organized, paths: Seq[(Seq[Type], Type with Path)]): Seq[Seq[Type]] = time("covers") {
     val coveringArgs: Iterable[Finite[Seq[Type]]] =
-      tgt.paths.foldLeft(Map.empty[Type with Path, Set[Seq[Type]]]) {
-        case (r, toCover) if r.keys.exists(_.isSubtypeOf(toCover)) => r
-        case (r, toCover) => r.updated(toCover, paths.foldLeft(Set.empty[Seq[Type]]) {
+      tgt.paths.minimize.foldLeft(Map.empty[Type with Path, Set[Seq[Type]]]) {
+        case (r, toCover) =>
+          r.updated(toCover, paths.foldLeft(Set.empty[Seq[Type]]) {
             case (s, (args, tgt)) if !s.contains(args) && tgt.isSubtypeOf(toCover) => s + args
             case (s, _) => s
           })
@@ -115,7 +143,8 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
         case (s, args) => (args :*: s).map { case (x, y) => x +: y }
       }.map(intersectArguments)
         .values
-        .distinct
+        .minimize
+        .toSeq
     }
   }
 

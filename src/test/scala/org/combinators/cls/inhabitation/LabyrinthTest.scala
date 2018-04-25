@@ -8,7 +8,7 @@ import org.scalatest.FunSpec
 import scala.util.Random
 
 class LabyrinthTest extends FunSpec {
-  val labyrinthSize = 5
+  val labyrinthSize = 4
   val start: (Int, Int) = (Random.nextInt(labyrinthSize), Random.nextInt(labyrinthSize))
   val goal: (Int, Int) = (Random.nextInt(labyrinthSize), Random.nextInt(labyrinthSize))
 
@@ -53,11 +53,11 @@ class LabyrinthTest extends FunSpec {
       describe(s"|- ? : $tgt") {
         lazy val Gamma = new BoundedCombinatoryLogic(kinding, SubtypeEnvironment(Map.empty), movements ++ freeFields)
         println(s"Repository constructed $Gamma")
-        ignore("should finish constructing the repository") {
+        it("should finish constructing the repository") {
           assert(Gamma.repository.nonEmpty)
         }
         lazy val results = Gamma.inhabit(tgt)
-        ignore("should finish inhabitation") {
+        it("should finish inhabitation") {
           assert(results.isEmpty || results.nonEmpty)
         }
       }
