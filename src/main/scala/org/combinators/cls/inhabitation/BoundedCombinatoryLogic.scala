@@ -44,7 +44,7 @@ class BoundedCombinatoryLogic(substitutionSpace: FiniteSubstitutionSpace, subtyp
   }
 
   /** Applies all substitutions of `kinding` to type `sigma`. */
-  private def blowUp(sigma: => Type): Finite[Stream[Type with Path]] =
+  private def blowUp(sigma: => Type): Finite[Seq[Type with Path]] =
     if (substitutions.values.isEmpty) Finite.singleton(Organized(sigma).paths)
     else substitutions.map { s => Organized(applySubst(s)(sigma)).paths }
 

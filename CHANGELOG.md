@@ -1,7 +1,10 @@
-### Version 2.0.1
+### Version 2.1.0
 This version contains minor patches.
 - Method `removeEntriesWithArgument` is now non-final to allow logging in a debugger
   inheriting from `FiniteCombinatoryLogic`
+- Various performance improvements
+- Method `addOption` of FiniteSubstitutionSpace` allows to add an allowed substitution,
+  where previously the only way to allow substitutions was via per-variable kinding.
 - Some sbt/version updates, including migration of [shapeless-feat](https://github.com/combinators/shapeless-feat) to `combinators.org`
 ### Version 2.0.0
 This is the first public release of cls-scala.

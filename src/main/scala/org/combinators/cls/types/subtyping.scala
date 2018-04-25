@@ -23,12 +23,19 @@ package org.combinators.cls.types
   * where each `sigma_i` is an arbitrary intersection type without variables.
   */
 sealed trait Path extends Organized { self: Type =>
-  final val paths: Stream[Type with Path] = this #:: Stream.empty[Type with Path]
+  final val paths: Seq[Type with Path] = Seq(this)
+}
+
+/** Type class to compute a minimal set wrt. some metric adhering to some constraint. */
+trait Minimizable {
+  type T
+  /** Computes a minimal set of elements. */
+  def minimize: Set[T]
 }
 
 /** A type is organized iff it is syntactically identical to an intersection of paths. */
 trait Organized { self: Type =>
-  val paths: Stream[Type with Path]
+  val paths: Seq[Type with Path]
 }
 
 /** Helper methods to (de-)construct paths from (/into) arguments and targets of arrows. */
@@ -39,7 +46,7 @@ object Path {
     *   unapply('A =>: 'B :&: 'C) = None
     * </code>
     */
-  def unapply(t: Type): Option[(Seq[Type], Constructor with Path)] =
+  final def unapply(t: Type): Option[(Seq[Type], Constructor with Path)] =
     t match {
       case c : Constructor with Path => Some((Seq.empty, c))
       case Constructor(name) => Some((Seq.empty, new Constructor(name) with Path))
@@ -57,7 +64,7 @@ object Path {
     }
 
   /** Constructs a path ending in `target` and taking `args` as arrow parameters. */
-  def apply(args: Seq[Type] = Seq.empty, target: Constructor with Path): Type with Path =
+  final def apply(args: Seq[Type] = Seq.empty, target: Constructor with Path): Type with Path =
     args.foldRight[Type with Organized with Path](target) {
       case (arg, result) => new Arrow(arg, result) with Path
     }
@@ -76,7 +83,7 @@ object Organized {
 
   /** Appends to sequences of paths. */
   final def addPaths(xs: Seq[Type with Path], ys: Seq[Type with Path]): Seq[Type with Path] =
-    xs.toStream.append(ys.toStream)
+    xs ++ ys
 
   /** Organizes any type into an intersection of paths. */
   final def apply(t: Type): Type with Organized =
@@ -99,20 +106,16 @@ object Organized {
       case Arrow(src, tgt) =>
         intersect(Organized(tgt).paths map (tgt => new Arrow(src, tgt) with Path))
       case Intersection(sigma, tau) =>
-        intersect(Organized(sigma).paths.append(Organized(tau).paths))
+        intersect(Organized(sigma).paths.toStream.append(Organized(tau).paths.toStream))
     }
 
-    /** Builds an organized type out of an intersection of paths. */
-    final def intersect(paths: Seq[Type with Organized with Path]): Type with Organized =
-      paths match {
-        case Seq() => Omega
-        case _ =>
-          paths.toStream.reduce[Type with Organized] {
-            case (p1, p2) => new Intersection(p1, p2) with Organized {
-              val paths = p1.paths.append(p2.paths)
-            }
-          }
-      }
+  /** Builds an organized type out of an intersection of paths. */
+  final def intersect(paths: Seq[Type with Organized with Path]): Type with Organized =
+    paths.reduceOption[Type with Organized] {
+        case (p1, p2) => new Intersection(p1, p2) with Organized {
+          val paths = p1.paths ++ p2.paths
+        }
+      }.getOrElse(Omega)
 }
 
 /** Subtyping based on a taxonomy of type constructors.
@@ -155,15 +158,15 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: Map[String, Set[String]]) {
   /** Functional representation of the taxonomy under reflexive transitive closure. */
   lazy val transitiveReflexiveTaxonomicSubtypesOf: String => Set[String] = closedEnvironment.apply
 
-  /** Type class to make types (subtype-)comparable */
+  /** Type class to make types (subtype-)comparable. */
   sealed trait TypeRelationOf {
     def isSupertypeOf(tau: Type): Boolean
     def isSubtypeOf(tau: Type): Boolean
   }
 
-  /** Type comparison for decompsed paths */
+  /** Type comparison for decompsed paths. */
   sealed private class SupertypesOfPath(pathArgs: Seq[Type], tgt: Constructor) {
-    /** All constructor names subtype-related of the target constructor */
+    /** All constructor names subtype-related of the target constructor. */
     private lazy val tgtSubs = transitiveReflexiveTaxonomicSubtypesOf(tgt.name)
 
     /** Checks, if another decomposed path `p'` can possibly be subtype-related to the path `p` given to the constructor:
@@ -196,28 +199,43 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: Map[String, Set[String]]) {
                 .forall { case (arg, tgtArg) => tgtArg.isSupertypeOf(arg) }
             }
         }
-
     }
   }
 
   /** Instance of the subtype relation type class. */
   implicit class toTypeRelationOf(sigma: Type) extends TypeRelationOf {
-    def isSupertypeOf(tau: Type): Boolean = {
+    final def isSupertypeOf(tau: Type): Boolean = {
       val organizedTau =
         Organized(tau).paths.map {
           case Path(args, tgt) => (args, tgt)
         }
 
-      Organized(sigma).paths match {
-        case paths@(_ #:: _) =>
-          paths.forall {
-            case Path(srcs, tgt) => new SupertypesOfPath(srcs, tgt).isSuperTypeOf(organizedTau)
-          }
-        case _ => true
+      Organized(sigma).paths.forall {
+        case Path(srcs, tgt) => new SupertypesOfPath(srcs, tgt).isSuperTypeOf(organizedTau)
       }
     }
-    def isSubtypeOf(tau: Type): Boolean =
+    final def isSubtypeOf(tau: Type): Boolean =
       toTypeRelationOf(tau).isSupertypeOf(sigma)
+  }
+
+  object Minimizable {
+    type Aux[Ty <: Type] = Minimizable { type T = Ty }
+  }
+
+  /** Typeclass instance to minimize a type collection wrt. to its path cardinality under the constraint
+    * that the intersected initial type collection is subtype equal to the intersected result.
+    * Example:
+    * <code>
+    *   Seq('A :&: 'B =>: 'C :&: 'D, 'A =>: 'C) = Set('A =>: 'C, 'A :&: 'B =>: 'D)
+    * </code>
+    */
+  implicit class MinimalPathSet(tys: Seq[Type]) extends Minimizable {
+    type T = Type with Path
+    final def minimize: Set[T] =
+      tys.view.flatMap(Organized(_).paths).foldLeft(Set.empty[T]){
+        case (result, path) if result.exists(_.isSubtypeOf(path)) => result
+        case (result, path) => result.filterNot(_.isSupertypeOf(path)) + path
+      }
   }
 }
 
