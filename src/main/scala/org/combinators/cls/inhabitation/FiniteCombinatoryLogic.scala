@@ -25,8 +25,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
   import subtypes._
 
   /** An organized version of `repository` given in the constructor. */
-  private val organizedRepository: Map[String, Type with Organized] =
-    repository.mapValues(ty => Organized.intersect(Organized(ty).paths.minimize.toSeq))
+  private val organizedRepository: Map[String, Type with Organized] = repository.mapValues(Organized(_))
 
   /** Prints a debug message. */
   private final def debugPrint[A](x: A, msg: String = ""): A = {
@@ -76,7 +75,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
   private def intersectArguments(arguments: Seq[Seq[Type]]): Seq[Type with Organized] = time("intersecting arguments") {
     def intersectPiecewise(xs: Seq[Type with Organized], ys: Seq[Type with Organized]) =
       xs.zip(ys).map{
-        case (t1, t2) => Organized.intersect((t1.paths ++ t2.paths).minimize.toSeq)
+        case (t1, t2) => Organized.intersect(t1.paths ++ t2.paths)
       }
     if (arguments.isEmpty) Seq.empty else {
       arguments.tail.aggregate(arguments.head.map(Organized(_)))(
@@ -102,15 +101,14 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     */
   implicit class MinimalArguments(args: Seq[Seq[Type with Organized]]) extends Minimizable {
     type T = Seq[Type with Organized]
-    def minimize: Set[T] = {
-      def checkArgvectorRelation(lesserArgVect: Seq[Type], greaterArgVect: Seq[Type]): Boolean =
-        lesserArgVect.view.zip(greaterArgVect).forall {
+    def minimize: Seq[T] = {
+      def checkArgvectorRelation(lesserArgVect: Seq[Type with Organized], greaterArgVect: Seq[Type with Organized]): Boolean =
+        lesserArgVect.corresponds(greaterArgVect) {
           case (lesserArg, greaterArg) => lesserArg.isSubtypeOf(greaterArg)
         }
-      args.foldLeft(Set.empty[Seq[Type with Organized]]) {
+      args.foldLeft(Seq.empty[Seq[Type with Organized]]) {
         case (result, argVect) if result.exists(checkArgvectorRelation(argVect, _)) => result
-        case (result, argVect) =>
-          result.filterNot(checkArgvectorRelation(_, argVect)) + argVect
+        case (result, argVect) => argVect +: result.filterNot(checkArgvectorRelation(_, argVect))
       }
     }
   }
@@ -129,10 +127,10 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     */
   final def covers(tgt: Type with Organized, paths: Seq[(Seq[Type], Type with Path)]): Seq[Seq[Type]] = time("covers") {
     val coveringArgs: Iterable[Finite[Seq[Type]]] =
-      tgt.paths.foldLeft(Map.empty[Type with Path, Set[Seq[Type]]]) {
+      tgt.paths.foldLeft(Map.empty[Type with Path, Seq[Seq[Type]]]) {
         case (r, toCover) =>
-          r.updated(toCover, paths.foldLeft(Set.empty[Seq[Type]]) {
-            case (s, (args, tgt)) if !s.contains(args) && tgt.isSubtypeOf(toCover) => s + args
+          r.updated(toCover, paths.foldLeft(Seq.empty[Seq[Type]]) {
+            case (s, (args, tgt)) if tgt.isSubtypeOf(toCover) => args +: s
             case (s, _) => s
           })
       }.values
@@ -144,7 +142,6 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
       }.map(intersectArguments)
         .values
         .minimize
-        .toSeq
     }
   }
 
