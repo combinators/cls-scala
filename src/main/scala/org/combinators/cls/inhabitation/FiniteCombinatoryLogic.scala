@@ -25,7 +25,8 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
   import subtypes._
 
   /** An organized version of `repository` given in the constructor. */
-  private val organizedRepository: Map[String, Type with Organized] = repository.mapValues(Organized(_))
+  private val organizedRepository: Map[String, Type with Organized] =
+    repository.mapValues(ty => Organized.intersect(Organized(ty).paths.minimize.toSeq))
 
   /** Prints a debug message. */
   private final def debugPrint[A](x: A, msg: String = ""): A = {
@@ -128,7 +129,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     */
   final def covers(tgt: Type with Organized, paths: Seq[(Seq[Type], Type with Path)]): Seq[Seq[Type]] = time("covers") {
     val coveringArgs: Iterable[Finite[Seq[Type]]] =
-      tgt.paths.minimize.foldLeft(Map.empty[Type with Path, Set[Seq[Type]]]) {
+      tgt.paths.foldLeft(Map.empty[Type with Path, Set[Seq[Type]]]) {
         case (r, toCover) =>
           r.updated(toCover, paths.foldLeft(Set.empty[Seq[Type]]) {
             case (s, (args, tgt)) if !s.contains(args) && tgt.isSubtypeOf(toCover) => s + args
@@ -225,7 +226,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
           debugPrint(kv, ">>> Already present")
           (substituteArguments(result, tgt, kv._1), Stream.empty #:: Stream.empty[Stream[Type]]) // replace the target everywhere
         case None =>
-          val orgTgt = time("target organization") { Organized(tgt) }
+          val orgTgt = time("target organization") { Organized.intersect(Organized(tgt).paths.minimize.toSeq) }
 
           val recursiveTargets: Map[String, Iterable[Seq[Type]]] =
             organizedRepository.par.mapValues { cType =>
@@ -234,7 +235,6 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
               val relevant = cType.paths
                 .flatMap(relevantFor(orgTgt, _))
                 .map(debugPrint(_, "Of those are relevant"))
-
               if (orgTgt.paths.exists(tgtP => !relevant.exists(r => r._2.isSubtypeOf(tgtP)))) {
                 Iterable.empty
               } else {
