@@ -52,7 +52,6 @@ class LabyrinthTest extends FunSpec {
       val tgt = 'Pos (intToType(goal._1), intToType(goal._2))
       describe(s"|- ? : $tgt") {
         lazy val Gamma = new BoundedCombinatoryLogic(kinding, SubtypeEnvironment(Map.empty), movements ++ freeFields)
-        println(s"Repository constructed $Gamma")
         it("should finish constructing the repository") {
           assert(Gamma.repository.nonEmpty)
         }
