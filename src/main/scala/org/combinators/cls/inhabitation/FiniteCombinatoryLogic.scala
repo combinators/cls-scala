@@ -25,7 +25,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
   import subtypes._
 
   /** An organized version of `repository` given in the constructor. */
-  private val organizedRepository: Map[String, Type with Organized] = repository.mapValues(Organized(_))
+  private val organizedRepository: Map[String, Type with Organized] = repository.mapValues(ty => Organized(ty))
 
   /** Prints a debug message. */
   private final def debugPrint[A](x: A, msg: String = ""): A = {
@@ -73,14 +73,10 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     * </code>
     */
   private def intersectArguments(arguments: Seq[Seq[Type]]): Seq[Type with Organized] = time("intersecting arguments") {
-    def intersectPiecewise(xs: Seq[Type with Organized], ys: Seq[Type with Organized]) =
-      xs.zip(ys).map{
-        case (t1, t2) => Organized.intersect(t1.paths ++ t2.paths)
-      }
     if (arguments.isEmpty) Seq.empty else {
       arguments.tail.aggregate(arguments.head.map(Organized(_)))(
-        (xs, ys) => intersectPiecewise(xs, ys.map(Organized(_))),
-        intersectPiecewise
+        (xs, ys) => Organized.intersectPiecewise(xs, ys.map(Organized(_))),
+        Organized.intersectPiecewise
       )
     }
   }
@@ -188,10 +184,8 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     results.foldLeft((Set.empty[(String, Seq[Type])], Stream.empty[Stream[Type]])){
         case ((productions, targetLists), (combinatorName, newTargetLists)) =>
           newTargetLists.foldLeft((productions, targetLists)) {
-            case ((nextProductions, nextTargetsLists), nextTargetList)
-              if !nextProductions.contains((combinatorName, nextTargetList)) =>
+            case ((nextProductions, nextTargetsLists), nextTargetList) =>
               (nextProductions + ((combinatorName, nextTargetList)), nextTargetList.toStream #:: nextTargetsLists)
-            case (s, _) => s
           }
       }
   }
@@ -227,11 +221,11 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
 
           val recursiveTargets: Map[String, Iterable[Seq[Type]]] =
             organizedRepository.par.mapValues { cType =>
-              debugPrint(orgTgt, "Covering component")
-              debugPrint(cType.paths, "Using paths")
+              /*debugPrint(orgTgt, "Covering component")
+              debugPrint(cType.paths, "Using paths")*/
               val relevant = cType.paths
                 .flatMap(relevantFor(orgTgt, _))
-                .map(debugPrint(_, "Of those are relevant"))
+                /*.map(debugPrint(_, "Of those are relevant"))*/
               if (orgTgt.paths.exists(tgtP => !relevant.exists(r => r._2.isSubtypeOf(tgtP)))) {
                 Iterable.empty
               } else {
@@ -242,7 +236,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
               }
             }.toMap.seq
           val (newProductions, newTargets) = newProductionsAndTargets(recursiveTargets)
-          newTargets.map(debugPrint(_, "Recursively inhabiting"))
+          /*newTargets.map(debugPrint(_, "Recursively inhabiting"))*/
 
           (result + (tgt -> newProductions), newTargets)
       }

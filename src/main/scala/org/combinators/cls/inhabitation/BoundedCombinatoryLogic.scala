@@ -52,8 +52,8 @@ class BoundedCombinatoryLogic(substitutionSpace: FiniteSubstitutionSpace, subtyp
 
   /** Applies all substitutions of `kinding` to every combinator type in `Gamma`. */
   private def blowUp(Gamma: => Repository): Repository = Gamma.mapValues { ty =>
-    val paths = blowUp(ty).values.view.flatMap(_.minimize)
-    Organized.intersect(paths)
+    val paths = blowUp(ty).values.view.map(_.minimize)
+    Organized.intersect(paths:_*)
   }
 
   /** The repository expanded by every substitution in `kinding`. */

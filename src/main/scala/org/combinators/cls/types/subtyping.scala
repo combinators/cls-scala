@@ -54,10 +54,10 @@ object Path {
         args.dropWhile(_ == Omega) match {
           case Path(_, _) +: rest =>
             rest.dropWhile(_ == Omega) match {
-              case Seq() => Some((Seq(), new Constructor(name, args: _*) with Path))
+              case Seq() => Some((Seq.empty, new Constructor(name, args: _*) with Path))
               case _ => None
             }
-          case Seq() => Some((Seq(), new Constructor(name, args: _*) with Path))
+          case Seq() => Some((Seq.empty, new Constructor(name, args: _*) with Path))
         }
       case Arrow(src, Path(srcs, tgt)) => Some((src +: srcs, tgt))
       case _ => None
@@ -93,10 +93,10 @@ object Organized {
       case Constructor(name, args @ _ *) if args.forall(isOmega) =>
         new Constructor(name, Seq.fill(args.size)(Omega): _*) with Path
       case Constructor(name, args @ _*) =>
-        intersect(args.map(Organized(_)).zipWithIndex.flatMap {
-            case (orgArg, argNo) =>
-              orgArg.paths.map (orgArg => {
-                val argVect = Stream.tabulate(args.size) {
+        intersect(args.zipWithIndex.flatMap {
+          case (arg, argNo) =>
+            Organized(arg).paths.map (orgArg => {
+              val argVect = args.indices.map {
                   case n if n == argNo => orgArg
                   case _ => Omega
                 }
@@ -105,23 +105,32 @@ object Organized {
           })
       case Arrow(src, tgt) =>
         intersect(Organized(tgt).paths map (tgt => new Arrow(src, tgt) with Path))
-      case Intersection(sigma, tau) =>
-        val allPaths = Organized(sigma).paths.toBuffer.clone()
-        allPaths ++= Organized(tau).paths
-        intersect(allPaths)
+      case Intersection(sigma, tau) => intersect(Organized(sigma).paths, Organized(tau).paths)
     }
 
   /** Builds an organized type out of an intersection of paths. */
-  final def intersect(paths: Seq[Type with Organized with Path]): Type with Organized =
-    paths.reduceOption[Type with Organized] {
-        case (p1, p2) => new Intersection(p1, p2) with Organized {
-          val paths = {
-            val result = p1.paths.toBuffer
-            result ++= p2.paths
-            result
-          }
+  final def intersect(pathss: Seq[Type with Organized with Path]*): Type with Organized = {
+    val allPaths = pathss.view.flatten
+    if (allPaths.isEmpty) Omega else {
+      allPaths.tail.foldLeft[Type with Organized](allPaths.head)((result, path) =>
+        new Intersection(path, result) with Organized {
+          val paths = path +: result.paths
         }
-      }.getOrElse(Omega)
+      )
+    }
+  }
+
+  /** Computes the piecewise intersection of the arguments in the given sequences.
+    * Assumes the sequences have the same length.
+    * Example:
+    * <code>
+    *   intersectPiecewise(Seq('A, 'B), Seq('C, 'D)) = Seq('A :&: 'C, 'B :&: 'D)
+    * </code>
+    */
+  def intersectPiecewise(xs: Seq[Type with Organized], ys: Seq[Type with Organized]): Seq[Type with Organized] =
+    xs.zip(ys).map{
+      case (t1, t2) => intersect(t1.paths, t2.paths)
+    }
 }
 
 /** Subtyping based on a taxonomy of type constructors.
