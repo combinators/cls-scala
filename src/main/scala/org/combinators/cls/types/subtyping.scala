@@ -30,7 +30,7 @@ sealed trait Path extends Organized { self: Type =>
 trait Minimizable {
   type T
   /** Computes a minimal set of elements. */
-  def minimize: Set[T]
+  def minimize: Seq[T]
 }
 
 /** A type is organized iff it is syntactically identical to an intersection of paths. */
@@ -54,10 +54,10 @@ object Path {
         args.dropWhile(_ == Omega) match {
           case Path(_, _) +: rest =>
             rest.dropWhile(_ == Omega) match {
-              case Seq() => Some((Seq(), new Constructor(name, args: _*) with Path))
+              case Seq() => Some((Seq.empty, new Constructor(name, args: _*) with Path))
               case _ => None
             }
-          case Seq() => Some((Seq(), new Constructor(name, args: _*) with Path))
+          case Seq() => Some((Seq.empty, new Constructor(name, args: _*) with Path))
         }
       case Arrow(src, Path(srcs, tgt)) => Some((src +: srcs, tgt))
       case _ => None
@@ -93,10 +93,10 @@ object Organized {
       case Constructor(name, args @ _ *) if args.forall(isOmega) =>
         new Constructor(name, Seq.fill(args.size)(Omega): _*) with Path
       case Constructor(name, args @ _*) =>
-        intersect(args.map(Organized(_)).zipWithIndex.flatMap {
-            case (orgArg, argNo) =>
-              orgArg.paths.map (orgArg => {
-                val argVect = Stream.tabulate(args.size) {
+        intersect(args.zipWithIndex.flatMap {
+          case (arg, argNo) =>
+            Organized(arg).paths.map (orgArg => {
+              val argVect = args.indices.map {
                   case n if n == argNo => orgArg
                   case _ => Omega
                 }
@@ -105,17 +105,32 @@ object Organized {
           })
       case Arrow(src, tgt) =>
         intersect(Organized(tgt).paths map (tgt => new Arrow(src, tgt) with Path))
-      case Intersection(sigma, tau) =>
-        intersect(Organized(sigma).paths.toStream.append(Organized(tau).paths.toStream))
+      case Intersection(sigma, tau) => intersect(Organized(sigma).paths, Organized(tau).paths)
     }
 
   /** Builds an organized type out of an intersection of paths. */
-  final def intersect(paths: Seq[Type with Organized with Path]): Type with Organized =
-    paths.reduceOption[Type with Organized] {
-        case (p1, p2) => new Intersection(p1, p2) with Organized {
-          val paths = p1.paths ++ p2.paths
+  final def intersect(pathss: Seq[Type with Organized with Path]*): Type with Organized = {
+    val allPaths = pathss.view.flatten
+    if (allPaths.isEmpty) Omega else {
+      allPaths.tail.foldLeft[Type with Organized](allPaths.head)((result, path) =>
+        new Intersection(path, result) with Organized {
+          val paths = path +: result.paths
         }
-      }.getOrElse(Omega)
+      )
+    }
+  }
+
+  /** Computes the piecewise intersection of the arguments in the given sequences.
+    * Assumes the sequences have the same length.
+    * Example:
+    * <code>
+    *   intersectPiecewise(Seq('A, 'B), Seq('C, 'D)) = Seq('A :&: 'C, 'B :&: 'D)
+    * </code>
+    */
+  def intersectPiecewise(xs: Seq[Type with Organized], ys: Seq[Type with Organized]): Seq[Type with Organized] =
+    xs.zip(ys).map{
+      case (t1, t2) => intersect(t1.paths, t2.paths)
+    }
 }
 
 /** Subtyping based on a taxonomy of type constructors.
@@ -175,11 +190,8 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: Map[String, Set[String]]) {
       * all parameters of `p'` must be greater or equal to those of `p`.
       */
     private def relevant(subArgs: Seq[Type], subTgt: Constructor): Boolean =
-      (subArgs.size == pathArgs.size) &&
-        tgtSubs(subTgt.name) &&
-        subArgs.par.zip(pathArgs.par).forall {
-          case (subArg, pathArg) => subArg.isSupertypeOf(pathArg)
-        }
+      tgtSubs(subTgt.name) &&
+        subArgs.corresponds(pathArgs)((subArg, pathArg) => subArg.isSupertypeOf(pathArg))
 
     /** Test, if the path given to the constructor is greater or equal to the intersection of `taus`. */
     def isSuperTypeOf(taus: Seq[(Seq[Type], Constructor)]): Boolean = {
@@ -193,10 +205,9 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: Map[String, Set[String]]) {
               case argss@(_ +: _) =>
                 argss.reduce[Seq[Type]] {
                     case (args1, args2) =>
-                      args1.zip(args2).map { case (arg1, arg2) => Intersection(arg1, arg2) }
+                      args1.view.zip(args2).map { case (arg1, arg2) => Intersection(arg1, arg2) }
                   }
-                .zip(tgt.arguments)
-                .forall { case (arg, tgtArg) => tgtArg.isSupertypeOf(arg) }
+                .corresponds(tgt.arguments) { case (arg, tgtArg) => tgtArg.isSupertypeOf(arg) }
             }
         }
     }
@@ -231,10 +242,10 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: Map[String, Set[String]]) {
     */
   implicit class MinimalPathSet(tys: Seq[Type]) extends Minimizable {
     type T = Type with Path
-    final def minimize: Set[T] =
-      tys.view.flatMap(Organized(_).paths).foldLeft(Set.empty[T]){
+    final def minimize: Seq[T] =
+      tys.view.flatMap(Organized(_).paths).foldLeft(Seq.empty[T]){
         case (result, path) if result.exists(_.isSubtypeOf(path)) => result
-        case (result, path) => result.filterNot(_.isSupertypeOf(path)) + path
+        case (result, path) => path +: result.filterNot(_.isSupertypeOf(path))
       }
   }
 }

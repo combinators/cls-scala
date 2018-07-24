@@ -19,6 +19,8 @@ package org.combinators.cls.inhabitation
 import org.combinators.cls.types._
 import shapeless.feat.Finite
 
+import scala.collection.SeqView
+
 /** Type inhabitation for bounded combinatory logic (BCL). */
 class BoundedCombinatoryLogic(substitutionSpace: FiniteSubstitutionSpace, subtypes: SubtypeEnvironment, Gamma: Repository) {
 
@@ -50,15 +52,8 @@ class BoundedCombinatoryLogic(substitutionSpace: FiniteSubstitutionSpace, subtyp
 
   /** Applies all substitutions of `kinding` to every combinator type in `Gamma`. */
   private def blowUp(Gamma: => Repository): Repository = Gamma.mapValues { ty =>
-    val paths =
-      blowUp(ty).values.foldLeft[Stream[Type with Path]](Stream.empty) {
-        case (s, ps) =>
-          ps.foldLeft(s) {
-            case (newPaths, p) if !newPaths.exists(_.isSubtypeOf(p)) => newPaths :+ p
-            case (newPaths, _) => newPaths
-          }
-      }
-    Organized.intersect(paths)
+    val paths = blowUp(ty).values.view.map(_.minimize)
+    Organized.intersect(paths:_*)
   }
 
   /** The repository expanded by every substitution in `kinding`. */

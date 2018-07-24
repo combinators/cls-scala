@@ -123,7 +123,7 @@ class SubtypesTest extends FunSpec {
     val originalType = originalSeq.foldRight[Type](Omega)((x, y) => Intersection(x, y))
     val minimalPaths = Organized(originalType).paths.minimize
     it("should be equal to their original types") {
-      assert(originalType.isSubtypeOf(Organized.intersect(minimalPaths.toSeq)))
+      assert(originalType.isSubtypeOf(Organized.intersect(minimalPaths)))
     }
     it("should not contain redundant paths") {
       assert(
