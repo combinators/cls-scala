@@ -6,6 +6,7 @@ This version contains minor patches.
 - Method `addOption` of FiniteSubstitutionSpace` allows to add an allowed substitution,
   where previously the only way to allow substitutions was via per-variable kinding.
 - Some sbt/version updates, including migration of [shapeless-feat](https://github.com/combinators/shapeless-feat) to `combinators.org`
+- Better pretty printing of constructors `C(x, y)` instead of `C(x,y)`
 ### Version 2.0.0
 This is the first public release of cls-scala.
 The most notable changes to prior (internal development) versions are:
