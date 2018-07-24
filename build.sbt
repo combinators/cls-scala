@@ -4,7 +4,7 @@ import sbt.Resolver
 lazy val commonSettings = Seq(
   organization := "org.combinators",
 
-  scalaVersion := "2.12.5",
+  scalaVersion := "2.12.6",
   crossScalaVersions := Seq("2.11.12", scalaVersion.value),
 
   resolvers ++= Seq(
@@ -14,7 +14,7 @@ lazy val commonSettings = Seq(
     Resolver.typesafeRepo("snapshots")
   ),
 
-  headerLicense := Some(HeaderLicense.ALv2("2017", "Jan Bessai")),
+  headerLicense := Some(HeaderLicense.ALv2("2018", "Jan Bessai")),
 
   scalacOptions ++= Seq(
     "-unchecked",
@@ -38,8 +38,8 @@ lazy val root = (Project(id = "cls-scala", base = file(".")))
       libraryDependencies ++= Seq(
         "org.combinators" %% "shapeless-feat" % "0.2.2",
         "org.scala-lang" % "scala-compiler" % scalaVersion.value,
-        "org.scalactic" %% "scalactic" % "3.0.4" % "test",
-        "org.scalatest" %% "scalatest" % "3.0.4" % "test"
+        "org.scalactic" %% "scalactic" % "3.0.5" % "test",
+        "org.scalatest" %% "scalatest" % "3.0.5" % "test"
       )
     )
 
