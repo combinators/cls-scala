@@ -149,10 +149,6 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
           case (c, tgts) => (c, tgts.map(tgt => if (tgt == oldType) newType else tgt))
         })
 
-  /** Removes all entries of `grammar` where `arg` occurs in a right hand side. */
-  def removeEntriesWithArgument(grammar: TreeGrammar, arg: Type): TreeGrammar =
-    grammar.mapValues(entries => entries.filterNot(_._2.contains(arg)))
-
 
   /** Finds all entries of `grammar` where the left hand side is a supertype of `ty`. */
   final def findSupertypeEntries(grammar: TreeGrammar, ty: Type): TreeGrammar =
@@ -193,8 +189,6 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
   /** Performs a single inhabitation step.
     * Finds combinators which can inhabit `tgt`, adds their application as right hand sides for the left hand side `tgt`
     * and returns a stream of new targets for each combinator that was used.
-    * Removes combinators depending on `tgt` if `grammar` contains a pair `(sigma -> rhs)`, where `sigma` is a supertype
-    * of `tgt` and `rhs` is an empty set.
     * Replaces all occurences of `tgt` if a (subtype-)equal left hand side is already present.
     *
     * @param result the tree grammar constructed so far.
@@ -208,39 +202,35 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     debugPrint(result, ">>> Result so far")
     val knownSupertypes = findSupertypeEntries(result, tgt)
     debugPrint(knownSupertypes, "<<<<>>>>> SupertypeEntries:")
-    if (knownSupertypes.values.exists(_ == Set.empty)) {
-      debugPrint(tgt, ">>> Already present and failed")
-      (removeEntriesWithArgument(result, tgt), Stream.empty)
-    } else {
-      findSmallerEntry(knownSupertypes, tgt) match {
-        case Some(kv) =>
-          debugPrint(kv, ">>> Already present")
-          (substituteArguments(result, tgt, kv._1), Stream.empty #:: Stream.empty[Stream[Type]]) // replace the target everywhere
-        case None =>
-          val orgTgt = time("target organization") { Organized.intersect(Organized(tgt).paths.minimize.toSeq) }
+    findSmallerEntry(knownSupertypes, tgt) match {
+      case Some(kv) =>
+        debugPrint(kv, ">>> Already present")
+        (substituteArguments(result, tgt, kv._1), Stream.empty #:: Stream.empty[Stream[Type]]) // replace the target everywhere
+      case None =>
+        val orgTgt = time("target organization") { Organized.intersect(Organized(tgt).paths.minimize.toSeq) }
 
-          val recursiveTargets: Map[String, Iterable[Seq[Type]]] =
-            organizedRepository.par.mapValues { cType =>
-              /*debugPrint(orgTgt, "Covering component")
-              debugPrint(cType.paths, "Using paths")*/
-              val relevant = cType.paths
-                .flatMap(relevantFor(orgTgt, _))
-                /*.map(debugPrint(_, "Of those are relevant"))*/
-              if (orgTgt.paths.exists(tgtP => !relevant.exists(r => r._2.isSubtypeOf(tgtP)))) {
-                Iterable.empty
-              } else {
-                relevant
-                  .groupBy(x => x._1.size)
-                  .mapValues(pathComponents => covers(orgTgt, pathComponents))
-                  .values.flatten
-              }
-            }.toMap.seq
-          val (newProductions, newTargets) = newProductionsAndTargets(recursiveTargets)
-          /*newTargets.map(debugPrint(_, "Recursively inhabiting"))*/
+        val recursiveTargets: Map[String, Iterable[Seq[Type]]] =
+          organizedRepository.par.mapValues { cType =>
+            /*debugPrint(orgTgt, "Covering component")
+            debugPrint(cType.paths, "Using paths")*/
+            val relevant = cType.paths
+              .flatMap(relevantFor(orgTgt, _))
+              /*.map(debugPrint(_, "Of those are relevant"))*/
+            if (orgTgt.paths.exists(tgtP => !relevant.exists(r => r._2.isSubtypeOf(tgtP)))) {
+              Iterable.empty
+            } else {
+              relevant
+                .groupBy(x => x._1.size)
+                .mapValues(pathComponents => covers(orgTgt, pathComponents))
+                .values.flatten
+            }
+          }.toMap.seq
+        val (newProductions, newTargets) = newProductionsAndTargets(recursiveTargets)
+        /*newTargets.map(debugPrint(_, "Recursively inhabiting"))*/
 
-          (result + (tgt -> newProductions), newTargets)
-      }
+        (result + (tgt -> newProductions), newTargets)
     }
+
   }
 
   /** Inhabits the arguments of a single combinator.
