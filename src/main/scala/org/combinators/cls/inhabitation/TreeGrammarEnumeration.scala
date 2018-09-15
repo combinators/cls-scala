@@ -25,7 +25,7 @@ import scala.collection.mutable
   * @param name the name of the combinator in head position.
   * @param arguments arguments of the combinator.
   */
-case class Tree(name: String, arguments: Tree*)
+case class Tree(name: String, target: Type, arguments: Tree*)
 
 /** Enumeration of all combinatory expressions derivable from a [[TreeGrammar]].
   * Use [[TreeGrammarEnumeration.apply]] to obtain an enumeration for any given `TreeGrammar`.
@@ -45,7 +45,7 @@ trait TreeGrammarEnumeration {
                 val recArgs = enumerationMap(arg).pay
                 enum.product(recArgs).map { case (args, arg) => arg +: args }
               }
-            val terms = argEnum.map((args: Seq[Tree]) => Tree(combinator, args: _*)).pay
+            val terms = argEnum.map((args: Seq[Tree]) => Tree(combinator, entry, args: _*)).pay
             enum.union(terms)
           } }
         )
