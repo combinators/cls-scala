@@ -73,17 +73,17 @@ class InterpreterTest extends FunSpec {
 
   val repository = new Repo
   val result = ReflectedRepository(repository, semanticTaxonomy = repository.repatedTaxonomy)
+  val intTag: WeakTypeTag[Int] = implicitly
+  val doubleTag: WeakTypeTag[Double] = implicitly
+  val stringTag: WeakTypeTag[String] = implicitly
+  val listSuperTag: WeakTypeTag[List[Super]] = implicitly
+  val listSubTag: WeakTypeTag[List[Sub]] = implicitly
+  val listTopTag: WeakTypeTag[List[Top]] = implicitly
+  val typeTag: WeakTypeTag[Type] = implicitly
+  val typeTypeTag: WeakTypeTag[Type => Type] = implicitly
 
 
   describe("The reflected repository") {
-    val intTag: WeakTypeTag[Int] = implicitly
-    val doubleTag: WeakTypeTag[Double] = implicitly
-    val stringTag: WeakTypeTag[String] = implicitly
-    val listSuperTag: WeakTypeTag[List[Super]] = implicitly
-    val listSubTag: WeakTypeTag[List[Sub]] = implicitly
-    val listTopTag: WeakTypeTag[List[Top]] = implicitly
-    val typeTag: WeakTypeTag[Type] = implicitly
-    val typeTypeTag: WeakTypeTag[Type => Type] = implicitly
 
     val fExpectedInfo = StaticCombinatorInfo("f", Some(List(intTag.tpe, stringTag.tpe)), listSuperTag.tpe, Some(Omega =>: 'bar =>: 'foo), null)
     val g1ExpectedInfo = StaticCombinatorInfo("g1", Some(List(typeTag.tpe)), typeTypeTag.tpe, Some(Omega =>: Omega), null)
@@ -140,7 +140,7 @@ class InterpreterTest extends FunSpec {
     }
   }
 
-  val fTree = Tree("f", ReflectedRepository.nativeTypeOf[List[Top]] :&: 'foo, Tree("h1", ReflectedRepository.nativeTypeOf[Int]), Tree("h2", ReflectedRepository.nativeTypeOf[String] :&: 'bar))
+  val fTree = Tree("f", ReflectedRepository.nativeTypeOf[List[Top]] :&: 'foo, Tree("h1", ReflectedRepository.nativeTypeOf[Int](intTag)), Tree("h2", ReflectedRepository.nativeTypeOf[String] :&: 'bar))
   val g2Tree = Tree("g2", ReflectedRepository.nativeTypeOf[List[Top]] :&: 'foo , Tree("h1", ReflectedRepository.nativeTypeOf[Int]), Tree("h2", ReflectedRepository.nativeTypeOf[String] :&: 'bar))
 
   describe("when used for inhabitation of List[Top] :&: 'foo") {
@@ -153,9 +153,12 @@ class InterpreterTest extends FunSpec {
         val subtypeEnvironment =
           SubtypeEnvironment(result.nativeTypeTaxonomy
             .addNativeType[List[Top]]
+            .addNativeType[Int]
+            .addNativeType[String]
             .taxonomy
             .merge(result.semanticTaxonomy)
             .underlyingMap)
+
         assert(inhabitants.terms.values.flatMap(_._2).forall(tree =>
           fTree.equalsWithSubtypeEqualityIn(subtypeEnvironment, tree) ||
             g2Tree.equalsWithSubtypeEqualityIn(subtypeEnvironment, tree)))
@@ -204,6 +207,8 @@ class InterpreterTest extends FunSpec {
       val subtypeEnvironment =
         SubtypeEnvironment(result.nativeTypeTaxonomy
           .addNativeType[List[Top]]
+          .addNativeType[Int]
+          .addNativeType[String]
           .taxonomy
           .merge(result.semanticTaxonomy)
           .underlyingMap)
