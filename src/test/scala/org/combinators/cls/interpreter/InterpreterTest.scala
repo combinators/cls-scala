@@ -198,7 +198,6 @@ class InterpreterTest extends FunSpec {
     }
 
     lazy val inhabitants = job.run()
-println(inhabitants._1._1.terms.values.flatMap(_._2))
     it(s"should yield $fTree and $g2Tree") {
       assert(!inhabitants._1._1.isInfinite)
       assert(inhabitants._1._1.size.exists(_ >= 2))
