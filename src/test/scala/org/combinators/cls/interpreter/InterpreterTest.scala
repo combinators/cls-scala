@@ -140,8 +140,22 @@ class InterpreterTest extends FunSpec {
     }
   }
 
-  val fTree = Tree("f", ReflectedRepository.nativeTypeOf[List[Top]] :&: 'foo, Tree("h1", ReflectedRepository.nativeTypeOf[Int](intTag)), Tree("h2", ReflectedRepository.nativeTypeOf[String] :&: 'bar))
-  val g2Tree = Tree("g2", ReflectedRepository.nativeTypeOf[List[Top]] :&: 'foo , Tree("h1", ReflectedRepository.nativeTypeOf[Int]), Tree("h2", ReflectedRepository.nativeTypeOf[String] :&: 'bar))
+  val fTree =
+    Tree("f", ReflectedRepository.nativeTypeOf[List[Top]] :&: 'foo,
+      Tree("h1", ReflectedRepository.nativeTypeOf[Int]),
+      Tree("h2", ReflectedRepository.nativeTypeOf[String] :&: 'bar))
+  val g2Tree =
+    Tree("g2", ReflectedRepository.nativeTypeOf[List[Top]] :&: 'foo ,
+      Tree("h1", ReflectedRepository.nativeTypeOf[Int]),
+      Tree("h2", ReflectedRepository.nativeTypeOf[String] :&: 'bar))
+  val subtypeEnvironmentToCompareTrees =
+    SubtypeEnvironment(result.nativeTypeTaxonomy
+      .addNativeType[List[Top]]
+      .addNativeType[Int]
+      .addNativeType[String]
+      .taxonomy
+      .merge(result.semanticTaxonomy)
+      .underlyingMap)
 
   describe("when used for inhabitation of List[Top] :&: 'foo") {
     val inhabitants = result.inhabit[List[Top]]('foo)
@@ -150,18 +164,10 @@ class InterpreterTest extends FunSpec {
       it(s"should yield $fTree and $g2Tree") {
         assert(!inhabitants.isInfinite)
         assert(!inhabitants.isEmpty)
-        val subtypeEnvironment =
-          SubtypeEnvironment(result.nativeTypeTaxonomy
-            .addNativeType[List[Top]]
-            .addNativeType[Int]
-            .addNativeType[String]
-            .taxonomy
-            .merge(result.semanticTaxonomy)
-            .underlyingMap)
 
         assert(inhabitants.terms.values.flatMap(_._2).forall(tree =>
-          fTree.equalsWithSubtypeEqualityIn(subtypeEnvironment, tree) ||
-            g2Tree.equalsWithSubtypeEqualityIn(subtypeEnvironment, tree)))
+          fTree.equalsWithSubtypeEqualityIn(subtypeEnvironmentToCompareTrees, tree) ||
+            g2Tree.equalsWithSubtypeEqualityIn(subtypeEnvironmentToCompareTrees, tree)))
     }
   }
 
@@ -204,17 +210,9 @@ class InterpreterTest extends FunSpec {
     it(s"should yield $fTree and $g2Tree") {
       assert(!inhabitants._1._1.isInfinite)
       assert(inhabitants._1._1.size.exists(_ >= 2))
-      val subtypeEnvironment =
-        SubtypeEnvironment(result.nativeTypeTaxonomy
-          .addNativeType[List[Top]]
-          .addNativeType[Int]
-          .addNativeType[String]
-          .taxonomy
-          .merge(result.semanticTaxonomy)
-          .underlyingMap)
       assert(inhabitants._1._1.terms.values.flatMap(_._2).forall(tree =>
-        fTree.equalsWithSubtypeEqualityIn(subtypeEnvironment, tree) ||
-          g2Tree.equalsWithSubtypeEqualityIn(subtypeEnvironment, tree)))
+        fTree.equalsWithSubtypeEqualityIn(subtypeEnvironmentToCompareTrees, tree) ||
+          g2Tree.equalsWithSubtypeEqualityIn(subtypeEnvironmentToCompareTrees, tree)))
     }
 
     it(s"should have an infinite third component") {
