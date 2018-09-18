@@ -49,7 +49,7 @@ class PruneTest extends FunSpec {
             (BigInt(0), Stream.empty[Tree]) #::
               (BigInt(0), Stream.empty[Tree]) #::
               (BigInt(0), Stream.empty[Tree]) #::
-              (BigInt(1), Tree("f", Tree("x")) #:: Stream.empty[Tree]) #::
+              (BigInt(1), Tree("f", Constructor("Goal"), Tree("x", Constructor("Int"))) #:: Stream.empty[Tree]) #::
               (BigInt(0), Stream.empty[Tree]) #::
               Stream.empty[(BigInt, Stream[Tree])]
         )

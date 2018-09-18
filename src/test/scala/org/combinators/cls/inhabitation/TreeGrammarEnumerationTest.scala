@@ -27,20 +27,20 @@ class TreeGrammarEnumerationTest extends FunSpec {
     }
 
     describe(s"Starting with  ${toConstructor('C)}") {
-      it(s"should only yield ${Tree("K")}") {
+      it(s"should only yield ${Tree("K", 'C)}") {
         assert(TreeGrammarEnumeration(testGrammar, 'C).values.flatMap(_._2) ==
-          Enumeration.singleton(Tree("K")).values.flatMap(_._2))
+          Enumeration.singleton(Tree("K", 'C)).values.flatMap(_._2))
       }
     }
 
     describe(s"Starting with ${toConstructor('E)}") {
-      it(s"should yield (${Tree("L")}, ${Tree("M", Tree("L"))}, ${Tree("M", Tree("M", Tree("L")))}, ...)") {
+      it(s"should yield (${Tree("L", 'E)}, ${Tree("M", 'E, Tree("L", 'E))}, ${Tree("M", 'E, Tree("M", 'E, Tree("L", 'E)))}, ...)") {
         lazy val expectedEnum: Enumeration[Tree] =
-          Enumeration.singleton(Tree("L")).pay
+          Enumeration.singleton(Tree("L", 'E)).pay
             .union(
-              Enumeration.singleton("M")
+              Enumeration.singleton("M", 'E)
                 .product(expectedEnum.pay)
-                .map { case (c, arg) => Tree(c, arg) }
+                .map { case (c, arg) => Tree(c._1, c._2, arg) }
                 .pay
             )
         val result = TreeGrammarEnumeration(testGrammar, 'E)
@@ -53,27 +53,27 @@ class TreeGrammarEnumerationTest extends FunSpec {
       it(s"should yield the same results as manual unrolling") {
         lazy val expectedEnumB: Enumeration[Tree] = {
           val argA = expectedEnumA.pay
-          Enumeration.singleton(Tree("I")).pay
+          Enumeration.singleton(Tree("I", 'B)).pay
             .union(
-              Enumeration.singleton("J")
+              Enumeration.singleton("J", 'B)
                 .product(argA)
-                .map { case (j, x) => Tree(j, x) }
+                .map { case (j, x) => Tree(j._1, j._2, x) }
                 .pay
             )
         }
         lazy val expectedEnumA: Enumeration[Tree] = {
           val argA = expectedEnumA.pay
           val argB = expectedEnumB.pay
-          Enumeration.singleton(Tree("F")).pay
+          Enumeration.singleton(Tree("F", 'A)).pay
             .union(
-              Enumeration.singleton("G")
+              Enumeration.singleton("G", 'A)
                 .product(argA.product(argA))
-                .map { case (g, (x, y)) => Tree(g, x, y) }
+                .map { case (g, (x, y)) => Tree(g._1, g._2, x, y) }
                 .pay
             ).union(
-              Enumeration.singleton("H")
+              Enumeration.singleton("H", 'A)
                 .product(argA.product(argB))
-                .map { case (h, (x, y)) => Tree(h, x, y) }
+                .map { case (h, (x, y)) => Tree(h._1, h._2, x, y) }
                 .pay
             )
         }
