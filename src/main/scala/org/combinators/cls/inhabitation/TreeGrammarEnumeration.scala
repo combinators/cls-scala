@@ -25,7 +25,14 @@ import scala.collection.mutable
   * @param name the name of the combinator in head position.
   * @param arguments arguments of the combinator.
   */
-case class Tree(name: String, target: Type, arguments: Tree*)
+case class Tree(name: String, target: Type, arguments: Tree*) {
+  def equalsWithSubtypeEqualityIn(environment: SubtypeEnvironment, other: Tree): Boolean = {
+    import environment._
+    return name == other.name &&
+      target.isSubtypeOf(other.target) && other.target.isSubtypeOf(target) &&
+      arguments.corresponds(other.arguments)((t1, t2) => t1.equalsWithSubtypeEqualityIn(environment, t2))
+  }
+}
 
 /** Enumeration of all combinatory expressions derivable from a [[TreeGrammar]].
   * Use [[TreeGrammarEnumeration.apply]] to obtain an enumeration for any given `TreeGrammar`.
