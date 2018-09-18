@@ -3,7 +3,6 @@ package org.combinators.cls.inhabitation
 import org.scalatest._
 import org.combinators.cls.types._
 
-
 class BCLTest extends FunSpec {
 
   val mapTest =
@@ -44,14 +43,13 @@ class BCLTest extends FunSpec {
       it("should not be empty") {
         assert(results.nonEmpty)
       }
-      it("should unroll exactly to Tree(map, _, Tree(f, _), Tree(l, _))") {
+      it("should unroll exactly to Tree(map, Tree(f), Tree(l))") {
         assert(
           TreeGrammarEnumeration(results, tgt)
             .values
             .flatMap(_._2).toSet ==
-            Set(Tree("map", Constructor("List", Constructor("String")), Tree("f", Arrow(Constructor("Int"), Constructor("String"))) ,Tree("l", Constructor("List", Constructor("Int")))), Tree("map",Constructor("List", Constructor("String")), Tree("f",Arrow(Constructor("Char"), Constructor("String"))), Tree("l", Constructor("List", Constructor("Char"))))))
-
-
+            Set(Tree("map", Tree("f"), Tree("l")))
+        )
       }
     }
   }

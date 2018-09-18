@@ -46,12 +46,12 @@ class FCLTest extends FunSpec {
           })
       }
       it("should unroll to Tree(Zero) at index 0") {
-        assert(TreeGrammarEnumeration(results, Constructor("Int")).index(0) == Tree("Zero", Constructor("Int")))
+        assert(TreeGrammarEnumeration(results, Constructor("Int")).index(0) == Tree("Zero"))
       }
       it("should unroll to Tree(Succ, Tree(Succ, Tree(Succ, Tree(Zero)))) at index 4") {
         assert(
           TreeGrammarEnumeration(results, Constructor("Int")).index(4) ==
-          Tree("Succ", Constructor("Int"), Tree("Succ", Intersection(Constructor("Odd"),Constructor("Int")) , Tree("Succ", Intersection(Constructor("Even"),Constructor("Int")), Tree("Succ", Intersection(Constructor("Odd"),Constructor("Int")), Tree("Zero", Intersection(Constructor("Even"),Constructor("Int"))))))))
+          Tree("Succ", Tree("Succ", Tree("Succ", Tree("Succ", Tree("Zero"))))))
       }
     }
 

@@ -346,12 +346,12 @@ trait ReflectedRepository[R] { self =>
       }
     def constructTerm(inhabitant: Tree): universe.Tree =
       inhabitant match {
-        case Tree(name, _)
+        case Tree(name)
           if combinatorComponents(name).parameters.isEmpty =>
           q"${toCombinatorInstanceTree(combinatorComponents(name))}.apply"
-        case Tree(name, _) =>
+        case Tree(name) =>
           q"${toCombinatorInstanceTree(combinatorComponents(name))}()"
-        case Tree(name, _, arguments@_*) =>
+        case Tree(name, arguments@_*) =>
           q"${toCombinatorInstanceTree(combinatorComponents(name))}(..${arguments.map(constructTerm)})"
       }
     tb.eval(constructTerm(inhabitant)).asInstanceOf[T]
