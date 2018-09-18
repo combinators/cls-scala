@@ -73,15 +73,17 @@ class InterpreterTest extends FunSpec {
 
   val repository = new Repo
   val result = ReflectedRepository(repository, semanticTaxonomy = repository.repatedTaxonomy)
+  val intTag: WeakTypeTag[Int] = implicitly
+  val doubleTag: WeakTypeTag[Double] = implicitly
+  val stringTag: WeakTypeTag[String] = implicitly
+  val listSuperTag: WeakTypeTag[List[Super]] = implicitly
+  val listSubTag: WeakTypeTag[List[Sub]] = implicitly
+  val listTopTag: WeakTypeTag[List[Top]] = implicitly
+  val typeTag: WeakTypeTag[Type] = implicitly
+  val typeTypeTag: WeakTypeTag[Type => Type] = implicitly
+
 
   describe("The reflected repository") {
-    val intTag: WeakTypeTag[Int] = implicitly
-    val doubleTag: WeakTypeTag[Double] = implicitly
-    val stringTag: WeakTypeTag[String] = implicitly
-    val listSuperTag: WeakTypeTag[List[Super]] = implicitly
-    val listSubTag: WeakTypeTag[List[Sub]] = implicitly
-    val typeTag: WeakTypeTag[Type] = implicitly
-    val typeTypeTag: WeakTypeTag[Type => Type] = implicitly
 
     val fExpectedInfo = StaticCombinatorInfo("f", Some(List(intTag.tpe, stringTag.tpe)), listSuperTag.tpe, Some(Omega =>: 'bar =>: 'foo), null)
     val g1ExpectedInfo = StaticCombinatorInfo("g1", Some(List(typeTag.tpe)), typeTypeTag.tpe, Some(Omega =>: Omega), null)
@@ -138,15 +140,34 @@ class InterpreterTest extends FunSpec {
     }
   }
 
-  val fTree = Tree("f", Tree("h1"), Tree("h2"))
-  val g2Tree = Tree("g2", Tree("h1"), Tree("h2"))
+  val fTree =
+    Tree("f", ReflectedRepository.nativeTypeOf[List[Top]] :&: 'foo,
+      Tree("h1", ReflectedRepository.nativeTypeOf[Int]),
+      Tree("h2", ReflectedRepository.nativeTypeOf[String] :&: 'bar))
+  val g2Tree =
+    Tree("g2", ReflectedRepository.nativeTypeOf[List[Top]] :&: 'foo ,
+      Tree("h1", ReflectedRepository.nativeTypeOf[Int]),
+      Tree("h2", ReflectedRepository.nativeTypeOf[String] :&: 'bar))
+  val subtypeEnvironmentToCompareTrees =
+    SubtypeEnvironment(result.nativeTypeTaxonomy
+      .addNativeType[List[Top]]
+      .addNativeType[Int]
+      .addNativeType[String]
+      .taxonomy
+      .merge(result.semanticTaxonomy)
+      .underlyingMap)
 
   describe("when used for inhabitation of List[Top] :&: 'foo") {
     val inhabitants = result.inhabit[List[Top]]('foo)
-    it(s"should yield $fTree and $g2Tree") {
-      assert(!inhabitants.isInfinite)
-      assert(!inhabitants.isEmpty)
-      assert(inhabitants.terms.values.flatMap(_._2).forall(tree => tree == fTree || tree == g2Tree))
+    val semanticType = inhabitants.interpretedTerms.values.flatMap(_._2)
+
+      it(s"should yield $fTree and $g2Tree") {
+        assert(!inhabitants.isInfinite)
+        assert(!inhabitants.isEmpty)
+
+        assert(inhabitants.terms.values.flatMap(_._2).forall(tree =>
+          fTree.equalsWithSubtypeEqualityIn(subtypeEnvironmentToCompareTrees, tree) ||
+            g2Tree.equalsWithSubtypeEqualityIn(subtypeEnvironmentToCompareTrees, tree)))
     }
   }
 
@@ -186,11 +207,12 @@ class InterpreterTest extends FunSpec {
     }
 
     lazy val inhabitants = job.run()
-
     it(s"should yield $fTree and $g2Tree") {
       assert(!inhabitants._1._1.isInfinite)
       assert(inhabitants._1._1.size.exists(_ >= 2))
-      assert(inhabitants._1._1.terms.values.flatMap(_._2).forall(tree => tree == fTree || tree == g2Tree))
+      assert(inhabitants._1._1.terms.values.flatMap(_._2).forall(tree =>
+        fTree.equalsWithSubtypeEqualityIn(subtypeEnvironmentToCompareTrees, tree) ||
+          g2Tree.equalsWithSubtypeEqualityIn(subtypeEnvironmentToCompareTrees, tree)))
     }
 
     it(s"should have an infinite third component") {
