@@ -18,7 +18,7 @@ package org.combinators.cls.types
 
 /** A path `p` conforms to the syntax:
   * <code>
-  *   p ::= 'C() | 'C((Omega, )* p (, Omega)*) | sigma_1 =>: ... =>: sigma_k =>: p
+  *   p ::= 'C(p) | C(Omega) | (Omega, Omega) | (Omega, p) | (p, Omega) | sigma_1 =>: ... =>: sigma_k =>: p
   * </code>
   * where each `sigma_i` is an arbitrary intersection type without variables.
   */
@@ -40,47 +40,34 @@ trait Organized { self: Type =>
 
 /** Helper methods to (de-)construct paths from (/into) arguments and targets of arrows. */
 object Path {
-  /** If possible, deconstructs a path `t` into a constructor, which is a path, and arrow parameters.
+  /** Constructs a path ending in `target` and taking `args` as arrow parameters. */
+  final def apply(args: Seq[Type] = Seq.empty, target: Type with Path): Type with Path =
+    args.foldRight[Type with Organized with Path](target) {
+      case (arg, result) => new Arrow(arg, result) with Path
+    }
+
+  /** If possible, deconstructs a path `t` into a constructor or product, which is a path, and arrow parameters.
     * <code>
     *   unapply('A =>: 'B :&: 'C =>: 'D) = Some(Seq('A, 'B :&: 'C), 'D)
     *   unapply('A =>: 'B :&: 'C) = None
     * </code>
     */
-  final def unapply(t: Type): Option[(Seq[Type], Constructor with Path)] =
+  final def unapply(t: Type): Option[(Seq[Type], Type with Path)] =
     t match {
       case c : Constructor with Path => Some((Seq.empty, c))
-      case Constructor(name) => Some((Seq.empty, new Constructor(name) with Path))
-      case Constructor(name, args @ _*) =>
-        args.dropWhile(_ == Omega) match {
-          case Path(_, _) +: rest =>
-            rest.dropWhile(_ == Omega) match {
-              case Seq() => Some((Seq.empty, new Constructor(name, args: _*) with Path))
-              case _ => None
-            }
-          case Seq() => Some((Seq.empty, new Constructor(name, args: _*) with Path))
-        }
+      case Constructor(name, Omega) => Some((Seq.empty, new Constructor(name, Omega) with Path))
+      case Constructor(name, arg@Path(_, _)) => Some((Seq.empty, new Constructor(name, arg) with Path))
+      case p : Product with Path => Some((Seq.empty, p))
+      case Product(Omega, Omega) => Some((Seq.empty, new Product(Omega, Omega) with Path))
+      case Product(p@Path(_, _), Omega) => Some((Seq.empty, new Product(p, Omega) with Path))
+      case Product(Omega, p@Path(_, _)) => Some((Seq.empty, new Product(Omega, p) with Path))
       case Arrow(src, Path(srcs, tgt)) => Some((src +: srcs, tgt))
       case _ => None
-    }
-
-  /** Constructs a path ending in `target` and taking `args` as arrow parameters. */
-  final def apply(args: Seq[Type] = Seq.empty, target: Constructor with Path): Type with Path =
-    args.foldRight[Type with Organized with Path](target) {
-      case (arg, result) => new Arrow(arg, result) with Path
     }
 }
 
 /** Helper methods to organize types. */
 object Organized {
-  /** Checks, if a type is (subtype-)equal to Omega */
-  private def isOmega(ty: Type): Boolean =
-    ty match {
-      case Omega => true
-      case Arrow(_, tgt) => isOmega(tgt)
-      case Intersection(l, r) => isOmega(l) && isOmega(r)
-      case _ => false
-    }
-
   /** Appends to sequences of paths. */
   final def addPaths(xs: Seq[Type with Path], ys: Seq[Type with Path]): Seq[Type with Path] =
     xs ++ ys
@@ -89,20 +76,17 @@ object Organized {
   final def apply(t: Type): Type with Organized =
     t match {
       case ot : Organized => ot
-      case Constructor(name) => new Constructor(name) with Path
-      case Constructor(name, args @ _ *) if args.forall(isOmega) =>
-        new Constructor(name, Seq.fill(args.size)(Omega): _*) with Path
-      case Constructor(name, args @ _*) =>
-        intersect(args.zipWithIndex.flatMap {
-          case (arg, argNo) =>
-            Organized(arg).paths.map (orgArg => {
-              val argVect = args.indices.map {
-                  case n if n == argNo => orgArg
-                  case _ => Omega
-                }
-                new Constructor(name, argVect: _*) with Path
-              })
-          })
+      case Constructor(name, arg) if arg.isOmega =>
+        new Constructor(name, Omega) with Path
+      case Constructor(name, arg) =>
+        intersect(Organized(arg).paths.map(p => new Constructor(name, p) with Path))
+      case Product(Omega, Omega) =>
+        new Product(Omega, Omega) with Path
+      case Product(sigma, tau) =>
+        intersect(
+          Organized(sigma).paths.map(p => new Product(p, Omega) with Path),
+          Organized(tau).paths.map(p => new Product(Omega, p) with Path)
+        )
       case Arrow(src, tgt) =>
         intersect(Organized(tgt).paths map (tgt => new Arrow(src, tgt) with Path))
       case Intersection(sigma, tau) => intersect(Organized(sigma).paths, Organized(tau).paths)
@@ -161,7 +145,7 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: Map[String, Set[String]]) {
       case (sigma, taus) => (sigma, taus + sigma)
     }.withDefault(x => Set(x))
 
-  /** The reflexive transtivie closure of the taxonomy passed in the constructor. */
+  /** The reflexive transitive closure of the taxonomy passed in the constructor. */
   lazy private val closedEnvironment: Map[String, Set[String]] =
     reflexiveClosure(
       Stream.iterate[(Boolean, Map[String, Set[String]])]((true, taxonomicSubtypesOf))(x => transitiveClosureStep(x._2))
@@ -179,54 +163,65 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: Map[String, Set[String]]) {
     def isSubtypeOf(tau: Type): Boolean
   }
 
-  /** Type comparison for decompsed paths. */
-  sealed private class SupertypesOfPath(pathArgs: Seq[Type], tgt: Constructor) {
-    /** All constructor names subtype-related of the target constructor. */
-    private lazy val tgtSubs = transitiveReflexiveTaxonomicSubtypesOf(tgt.name)
 
-    /** Checks, if another decomposed path `p'` can possibly be subtype-related to the path `p` given to the constructor:
-      * is it possible, that `p' <= p`?
-      * For this, parameter counts must be equal, `p` and `p'` must end in a subtype-related constructors and
-      * all parameters of `p'` must be greater or equal to those of `p`.
-      */
-    private def relevant(subArgs: Seq[Type], subTgt: Constructor): Boolean =
-      tgtSubs(subTgt.name) &&
-        subArgs.corresponds(pathArgs)((subArg, pathArg) => subArg.isSupertypeOf(pathArg))
-
-    /** Test, if the path given to the constructor is greater or equal to the intersection of `taus`. */
-    def isSuperTypeOf(taus: Seq[(Seq[Type], Constructor)]): Boolean = {
-      taus
-        .toStream
-        .filter { case (argsTau, tgtTau) => relevant(argsTau, tgtTau) } match {
-          case Seq() => false
-          case tauPaths =>
-            tauPaths.map(_._2.arguments) match {
-              case Seq() => true
-              case argss@(_ +: _) =>
-                argss.reduce[Seq[Type]] {
-                    case (args1, args2) =>
-                      args1.view.zip(args2).map { case (arg1, arg2) => Intersection(arg1, arg2) }
-                  }
-                .corresponds(tgt.arguments) { case (arg, tgtArg) => tgtArg.isSupertypeOf(arg) }
-            }
+  /** Extract immediate children in the syntax tree of types and filters them by relevance for subtype comparison. */
+  object cast {
+    def apply(to: Omega.type, from: Type): Seq[Type] = Seq(Omega)
+    def apply(to: Arrow, from: Type): Seq[(Type, Type)] =
+      if (to.target.isOmega) Seq((Omega, Omega)) else {
+        def castRec(from: Type, ctxt: Seq[(Type, Type)]): Seq[(Type, Type)] =
+          from match {
+            case Arrow(src, tgt) => (src, tgt) +: ctxt
+            case Intersection(sigma, tau) => castRec(sigma, castRec(tau, ctxt))
+            case _ => ctxt
+          }
+        castRec(from, Seq.empty)
+      }
+    def apply(to: Constructor, from: Type): Seq[Type] = {
+      def castRec(from: Type, ctxt: Seq[Type]): Seq[Type] =
+        from match {
+          case Constructor(name, arg)
+            if transitiveReflexiveTaxonomicSubtypesOf(to.name)(name) => arg +: ctxt
+          case Intersection(sigma, tau) => castRec(sigma, castRec(tau, ctxt))
+          case _ => ctxt
         }
+      castRec(from, Seq.empty)
+    }
+    def apply(to: Product, from: Type): Seq[(Type, Type)] = {
+      def castRec(from: Type, ctxt: Seq[(Type, Type)]): Seq[(Type, Type)] =
+        from match {
+          case Product(sigma, tau) => (sigma, tau) +: ctxt
+          case Intersection(sigma, tau) => castRec(sigma, castRec(tau, ctxt))
+          case _ => ctxt
+        }
+      castRec(from, Seq.empty)
     }
   }
 
-  /** Instance of the subtype relation type class. */
+  /** Instance of the subtype relation type class which operates on casted types */
   implicit class toTypeRelationOf(sigma: Type) extends TypeRelationOf {
-    final def isSupertypeOf(tau: Type): Boolean = {
-      val organizedTau =
-        Organized(tau).paths.map {
-          case Path(args, tgt) => (args, tgt)
-        }
 
-      Organized(sigma).paths.forall {
-        case Path(srcs, tgt) => new SupertypesOfPath(srcs, tgt).isSuperTypeOf(organizedTau)
+    private final def tgtForSrcs(gte: Type, in: Seq[(Type, Type)]): Seq[Type] =
+      in.collect { case (src, tgt) if gte.isSubtypeOf(src) => tgt }
+
+    override def isSubtypeOf(tau: Type): Boolean = {
+      tau match {
+        case Omega => true
+        case ctor@Constructor(_, arg) =>
+          val casted = cast(ctor, sigma)
+          casted.nonEmpty && Type.intersect(casted).isSubtypeOf(arg)
+        case arr@Arrow(src, tgt) =>
+          tgt.isOmega || Type.intersect(tgtForSrcs(src, cast(arr, sigma))).isSubtypeOf(tgt)
+        case p@Product(tau1, tau2) =>
+          val (sigmas1, sigmas2) = cast(p, sigma).unzip
+          sigmas1.nonEmpty && Type.intersect(sigmas1).isSubtypeOf(tau1) && Type.intersect(sigmas2).isSubtypeOf(tau2)
+        case Intersection(tau1, tau2) =>
+          isSubtypeOf(tau1) && isSubtypeOf(tau2)
+        case _ => false
       }
     }
-    final def isSubtypeOf(tau: Type): Boolean =
-      toTypeRelationOf(tau).isSupertypeOf(sigma)
+
+    override def isSupertypeOf(tau: Type): Boolean = tau.isSubtypeOf(sigma)
   }
 
   object Minimizable {

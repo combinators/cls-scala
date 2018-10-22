@@ -25,6 +25,10 @@ trait TypeSyntax {
   def :&:(other: Type): Type =
     Intersection(other, ty)
 
+  /** The product of `ty` and `other` */
+  def <*>(other: Type): Type =
+    Product(ty, other)
+
   /** Uses `ty` as the parameter of an arrow resulting in `other`. */
   def =>:(other: Type): Type =
     Arrow(other, ty)
@@ -44,18 +48,18 @@ trait ConstructorSyntax {
   val name: Symbol
   /** Apply `name` to a (non-empty) list of constructor arguments. */
   def apply(arg: Type, args: Type*): Constructor =
-    Constructor(name.name, arg +: args:_*)
+    Constructor(name.name, args.foldLeft(arg)((s, nextArg) => Product(s, nextArg)))
 }
 
 /** Instances of `ConstructorSyntax` for symbols, so we can use 'A('B) notation. */
 trait ToConstructorSyntax extends ToTypeSyntax {
   /** Enables 'A notation for argumentless constructors */
   implicit def toConstructor(name: Symbol): Constructor =
-    Constructor(name.name)
+    Constructor(name.name, Omega)
   /** Enables `ToTypeSyntax` sugar for argumentless constructors . */
   implicit def toTypeSyntax(name: Symbol): TypeSyntax =
     new TypeSyntax {
-      lazy val ty: Type = new Constructor(name.name)
+      lazy val ty: Type = Constructor(name.name, Omega)
     }
   /** Enables 'A('B) notation for constructors with arguments. */
   implicit def toConstructorSyntax(fromName: Symbol): ConstructorSyntax =

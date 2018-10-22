@@ -52,25 +52,26 @@ class SubtypesTest extends FunSpec {
       assert(Constructor("d").isSubtypeOf(Constructor("b")))
     }
     it("should allow subtyping without omega only arguments") {
-      assert(Constructor("a", Omega, Omega).isSupertypeOf(Constructor("c", Omega, Omega)))
+      assert(Constructor("a", Product(Omega, Omega)).isSupertypeOf(Constructor("c", Product(Omega, Omega))))
       assert(Constructor("d", Omega).isSubtypeOf(Constructor("b", Omega)))
     }
     it("should distribute wrt. to subtyping") {
-      assert(Intersection(Constructor("a", Constructor("d"), Omega), Constructor("a", Omega, Constructor("d")))
-              .isSubtypeOf(Constructor("a", Constructor("b"), Constructor("d"))))
-      assert(Intersection(Constructor("a", Constructor("d"), Omega), Constructor("a", Omega, Constructor("d")))
-        .isSupertypeOf(Constructor("a", Constructor("d"), Constructor("d"))))
+      assert(Intersection(Constructor("a", Product(Constructor("d"), Omega)), Constructor("a", Product(Omega, Constructor("d"))))
+              .isSubtypeOf(Constructor("a", Product(Constructor("b"), Constructor("d")))))
+      assert(Intersection(Constructor("a", Product(Constructor("d"), Omega)), Constructor("a", Product(Omega, Constructor("d"))))
+        .isSupertypeOf(Constructor("a", Product(Constructor("d"), Constructor("d")))))
     }
     it("should split into multiple paths with omega arguments") {
       assert(
         Organized(
           Constructor("a",
-            Constructor("b", Omega),
-            Intersection(Constructor("d", Constructor("e")), Constructor("e")))).paths.toSet ==
+            Product(
+              Constructor("b", Omega),
+              Intersection(Constructor("d", Constructor("e")), Constructor("e"))))).paths.toSet ==
         Set(
-          Constructor("a", Constructor("b", Omega), Omega),
-          Constructor("a", Omega, Constructor("d", Constructor("e"))),
-          Constructor("a", Omega, Constructor("e"))
+          Constructor("a", Product(Constructor("b", Omega), Omega)),
+          Constructor("a", Product(Omega, Constructor("d", Constructor("e")))),
+          Constructor("a", Product(Omega, Constructor("e")))
         ))
     }
     it("should work transitively") {
@@ -79,6 +80,44 @@ class SubtypesTest extends FunSpec {
             Intersection(Constructor("e"), Constructor("f")))
           .isSubtypeOf(
             Arrow(Arrow(Constructor("b", Constructor("a")), Constructor("c")), Constructor("f"))
+          )
+      )
+    }
+  }
+  describe("Products") {
+    import acbdEnv._
+    it("should allow subtyping without omega only arguments") {
+      assert(Product(Omega, Omega).isSupertypeOf(Product(Omega, Omega)))
+      assert(Product(Omega, Omega).isSubtypeOf(Product(Omega, Omega)))
+    }
+    it("should distribute wrt. to subtyping") {
+      assert(Intersection(Product(Constructor("a"), Omega), Product(Constructor("b"), Constructor("c")))
+        .isSubtypeOf(Product(Intersection(Constructor("a"), Constructor("b")), Constructor("c"))))
+      assert(Product(Intersection(Constructor("a"), Constructor("b")), Constructor("c"))
+        .isSupertypeOf(Intersection(Product(Constructor("a"), Omega), Product(Constructor("b"), Constructor("c")))))
+    }
+    it("should split into multiple paths with omega arguments") {
+      assert(
+        Organized(
+            Product(
+              Constructor("a"),
+              Product(Intersection(Product(Constructor("e"), Constructor("e")), Constructor("f")),
+                Product(Omega, Omega)))).paths.toSet ==
+          Set(
+            Product(Constructor("a"), Omega),
+            Product(Omega, Product(Product(Constructor("e"), Omega), Omega)),
+            Product(Omega, Product(Product(Omega, Constructor("e")), Omega)),
+            Product(Omega, Product(Constructor("f"), Omega)),
+            Product(Omega, Product(Omega, Product(Omega, Omega)))
+          ))
+    }
+    it("should work transitively") {
+      assert(
+        Arrow(Arrow(Product(Constructor("d"), Constructor("c")), Constructor("a")),
+          Product(Constructor("c"), Constructor("f")))
+          .isSubtypeOf(
+            Arrow(Arrow(Product(Constructor("b"), Constructor("a")), Constructor("c")),
+              Product(Constructor("a"),  Constructor("f")))
           )
       )
     }

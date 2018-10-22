@@ -27,13 +27,43 @@ sealed trait Type {
 
   /** Returns the String representation of this type. */
   override def toString: String = toStringPrec(0)
+
+  /** Returns whether this type is subtype-equal to Omega */
+  val isOmega: Boolean
+}
+
+/** Standard operations on types. */
+object Type {
+  def intersect(types: Seq[Type]): Type =
+    types match {
+      case Seq() => Omega
+      case Seq(sigma) => sigma
+      case sigma +: tys => Intersection(sigma, intersect(tys))
+    }
 }
 
 /** Represents intersection type constructors. */
-case class Constructor(name: String, arguments: Type*) extends Type {
+case class Constructor(name: String, argument: Type = Omega) extends Type {
   def toStringPrec(prec: Int): String = {
-    if (arguments.isEmpty) s"$name" else s"$name(${arguments.mkString(", ")})"
+    if (argument == Omega) s"$name" else s"$name($argument)"
   }
+
+  override val isOmega: Boolean = false
+}
+
+/** Represents a product of two types. */
+case class Product(sigma: Type, tau: Type) extends Type {
+  def toStringPrec(prec: Int): String = {
+    val productPrec = 9
+    def productShowAssoc(ty: Type) = ty match {
+      case Product(_, _) => ty.toStringPrec(productPrec)
+      case _ => ty.toStringPrec(productPrec + 1)
+    }
+    val r = s"${productShowAssoc(sigma)} * ${productShowAssoc(tau)}"
+    if (prec > productPrec) parens(r) else r
+  }
+
+  override val isOmega: Boolean = false
 }
 
 /** Represents intersections between types.
@@ -50,6 +80,8 @@ case class Intersection(sigma: Type, tau: Type) extends Type {
     val r = s"${interShowAssoc(sigma)} & ${interShowAssoc(tau)}"
     if (prec > interPrec) parens(r) else r
   }
+
+  override val isOmega: Boolean = sigma.isOmega && tau.isOmega
 }
 
 /** The universal intersection type &omega;, which is a supertype of everything. */
@@ -58,6 +90,8 @@ case object Omega extends Type with Organized {
 
   /** Omega has no paths, so its organization is the empty intersection */
   val paths: Stream[Type with Path] = Stream.empty
+
+  override val isOmega: Boolean = true
 }
 
 /** Represents arrows between types.
@@ -66,18 +100,22 @@ case object Omega extends Type with Organized {
   */
 case class Arrow(source: Type, target: Type) extends Type {
   def toStringPrec(prec: Int): String = {
-    val arrowPrec = 9
+    val arrowPrec = 8
     val r = target match {
       case Arrow(_, _) => s"${source.toStringPrec(arrowPrec + 1)} -> ${target.toStringPrec(arrowPrec)}"
       case _ => s"${source.toStringPrec(arrowPrec + 1)} -> ${target.toStringPrec(arrowPrec + 1)}"
     }
     if (prec > arrowPrec) parens(r) else r
   }
+
+  override val isOmega: Boolean = target.isOmega
 }
 
 /** Variables in intersection type schemes. */
 case class Variable(name: String) extends Type {
   def toStringPrec(prec: Int): String = name
+
+  override val isOmega: Boolean = false
 }
 
 

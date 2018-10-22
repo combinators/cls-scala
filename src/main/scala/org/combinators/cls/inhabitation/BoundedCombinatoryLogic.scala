@@ -34,12 +34,14 @@ class BoundedCombinatoryLogic(substitutionSpace: FiniteSubstitutionSpace, subtyp
     def subst(sigma: => Type): Type =
       sigma match {
         case Omega => Omega
-        case Constructor(c, arguments@_*) =>
-          Constructor(c, arguments.map(subst(_)): _*)
+        case Constructor(c, argument) =>
+          Constructor(c, subst(argument))
         case Arrow(src, tgt) =>
           Arrow(subst(src), subst(tgt))
         case Intersection(tau, rho) =>
           Intersection(subst(tau), subst(rho))
+        case Product(tau, rho) =>
+          Product(subst(tau), subst(rho))
         case v@Variable(_) => s(v)
       }
     subst(sigma)

@@ -484,7 +484,7 @@ object ReflectedRepository {
 
   /** Translates the reflected native Scala type `ty` into an intersection type constant. */
   def nativeTypeOf(ty: universe.Type): Constructor =
-    Constructor(show(ty.dealias))
+    Constructor(show(ty.dealias), Omega)
 
   /** Constructs the native combinator type out of a [[CombinatorInfo]] object.
     * For this, `apply(x: A, y: B): C` becomes `A =>: B =>: C`.
