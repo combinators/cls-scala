@@ -19,13 +19,19 @@ package org.combinators.cls.inhabitation
 import org.combinators.cls.types._
 import shapeless.feat.Finite
 
+import scala.annotation.tailrec
+
 /** Type inhabitation for finite combinatory logic (FCL) */
 class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: Repository) {
 
   import subtypes._
 
+
+
   /** An organized version of `repository` given in the constructor. */
-  private val organizedRepository: Map[String, Type with Organized] = repository.mapValues(ty => Organized(ty))
+  //private val organizedRepository: Map[String, Type with Organized] = repository.mapValues(ty => Organized(ty))
+
+  private val splittedRepository: Map[String, Seq[Seq[(Seq[Type], Type)]]] = repository.mapValues(split)
 
   /** Prints a debug message. */
   private final def debugPrint[A](x: A, msg: String = ""): A = {
@@ -43,6 +49,113 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     debugPrint(s"$location used:  ${after - before}",  forcedResult)*/
     x
   }
+
+  private def split(ty: Type): Seq[Seq[(Seq[Type], Type)]] = {
+    def addToHead[A](x: A, xss: Seq[Seq[A]]): Seq[Seq[A]] =
+      xss match {
+        case Seq() => Seq(Seq(x))
+        case xs +: xsstl => (x +: xs) +: xsstl
+      }
+    def safeSplit[A](xss: Seq[Seq[A]]): (Seq[A], Seq[Seq[A]]) =
+      xss match {
+        case Seq() => (Seq.empty, Seq(Seq.empty))
+        case xs +: Seq() => (xs, Seq(Seq.empty))
+        case xs +: xsstl => (xs, xsstl)
+      }
+    def splitRec(ty: Type, srcs: Seq[Type], delta: Seq[Seq[(Seq[Type], Type)]]): Seq[Seq[(Seq[Type], Type)]] =
+      ty match {
+        case ctor@Constructor(_, _) => addToHead((srcs, ctor), delta)
+        case p@Product(_, _) => addToHead((srcs, p), delta)
+        case Omega => delta
+        case Arrow(_, tgt) if tgt.isOmega => delta
+        case arr@Arrow(src, tgt) =>
+          Seq((srcs, arr)) +: splitRec(tgt, src +: srcs, delta)
+        case Intersection(ctor@Constructor(_, _), tau) =>
+          addToHead((srcs, ctor), splitRec(tau, srcs, delta))
+        case Intersection(p@Product(_, _), tau) => addToHead((srcs, p), splitRec(tau, srcs, delta))
+        case Intersection(Omega, tau) => splitRec(tau, srcs, delta)
+        case Intersection(Arrow(_, tgt), tau) if tgt.isOmega => splitRec(tau, srcs, delta)
+        case Intersection(arr@Arrow(src, tgt), tau) =>
+          val (delta1, delta2) = safeSplit(splitRec(tau, srcs, delta))
+          ((srcs, arr) +: delta1) +: splitRec(tgt, src +: srcs, delta2)
+        case Intersection(Intersection(sigma1, sigma2), tau) =>
+          splitRec(Intersection(sigma1, Intersection(sigma2, tau)), srcs, delta)
+      }
+    splitRec(ty, Seq.empty, Seq(Seq.empty))
+    /*
+    @tailrec def splitRec(
+      ty: Type, srcs: Seq[Type],
+      delta: Seq[Seq[(Seq[Type], Type)]],
+      k: Seq[Seq[(Seq[Type], Type)]] => Seq[Seq[(Seq[Type], Type)]]): Seq[Seq[(Seq[Type], Type)]] =
+      ty match {
+        case ctor@Constructor(_, _) => k(addToHead((srcs, ctor), delta))
+        case p@Product(_, _) => k(addToHead((srcs, p), delta))
+        case Omega => k(delta)
+        case Arrow(_, tgt) if tgt.isOmega => k(delta)
+        case arr@Arrow(src, tgt) =>
+          k(Seq((srcs, arr)) +: splitRec(tgt, src +: srcs, delta, x => x))
+        case Intersection(ctor@Constructor(_, _), tau) =>
+          splitRec(tau, srcs, delta, r => k(addToHead((srcs, ctor), r)))
+        case Intersection(p@Product(_, _), tau) =>
+          splitRec(tau, srcs, delta, r => k(addToHead((srcs, p), r)))
+        case Intersection(Omega, tau) => splitRec(tau, srcs, delta, k)
+        case Intersection(Arrow(_, tgt), tau) if tgt.isOmega => splitRec(tau, srcs, delta, k)
+        case Intersection(arr@Arrow(src, tgt), tau) =>
+          splitRec(tau, srcs, delta, r => k {
+            val (delta1, delta2) = safeSplit(r)
+            ((srcs, arr) +: delta1) +: splitRec(tgt, src +: srcs, delta2, x => x)
+          })
+        case Intersection(Intersection(sigma1, sigma2), tau) =>
+          splitRec(Intersection(sigma1, Intersection(sigma2, tau)), srcs, delta, k)
+      }
+    splitRec(ty, Seq.empty, Seq(Seq.empty), x => x)*/
+  }
+
+  private def addToSplit(split: (Seq[Type], Type), toAdd: (Seq[Type], Type)): (Seq[Type], Type) =
+    (split._1.zip(toAdd._1).map { case (src1, src2) => Intersection(src1, src2) },
+      Intersection(split._2, toAdd._2))
+
+  private def splitCover(allSplits: Seq[Seq[(Seq[Type], Type)]], toCover: Type with Organized): Seq[(Seq[Type], Type)] = {
+    def changedCover(tgt: Type, toCover: Seq[Type with Path]): Option[Seq[Type with Path]] = {
+      val (result, removed) = toCover.partition(!_.isSupertypeOf(tgt))
+      if (removed.isEmpty) None else Some(result)
+    }
+
+    def areSubsumedBy(srcs: Seq[Type], bySrcs: Seq[Type]): Boolean =
+      srcs.zip(bySrcs).forall { case (src, bySrc) => bySrc.isSubtypeOf(src) }
+
+    def splitCoverRec(
+      splits: Seq[(Seq[Type], Type)],
+      toCover: Seq[Type with Path],
+      currentResult: Option[(Seq[Type], Type)],
+      delta: Seq[(Seq[Type], Type)]): Seq[(Seq[Type], Type)] =
+      splits match {
+        case (srcs, tgt) +: splitsTl =>
+          (changedCover(tgt, toCover), currentResult) match {
+            case (Some(Seq()), None) =>
+              (srcs, tgt) +: splitCoverRec(splitsTl, toCover, currentResult, delta)
+            case (Some(Seq()), Some(result)) =>
+              addToSplit(result, (srcs, tgt)) +: splitCoverRec(splitsTl, toCover, currentResult, delta)
+            case (Some(remaining), Some((currentSrcs, currentTgt)))
+              if areSubsumedBy(srcs, currentSrcs) =>
+              splitCoverRec(splitsTl, remaining, Some((currentSrcs, Intersection(tgt, currentTgt))), delta)
+            case (Some(remaining), Some(result)) =>
+              splitCoverRec(splitsTl, remaining, Some(addToSplit(result, (srcs, tgt))),
+                splitCoverRec(splitsTl, toCover, currentResult, delta))
+            case (Some(remaining), None) =>
+              splitCoverRec(splitsTl, remaining, Some((srcs, tgt)),
+                splitCoverRec(splitsTl, toCover, currentResult, delta))
+            case (None, _) => splitCoverRec(splitsTl, toCover, currentResult, delta)
+          }
+        case Seq() => delta
+      }
+
+    allSplits.foldLeft(Seq.empty[(Seq[Type], Type)]) {
+      case (delta, splits) => splitCoverRec(splits, toCover.paths, None, delta)
+    }
+  }
+
+
 
   /** Splits `path` into (argument, target)-pairs, relevant for inhabiting `target`.
     * Relevant target components are path suffixes, which are supertypes of `target`.
@@ -209,7 +322,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
       case None =>
         val orgTgt = time("target organization") { Organized.intersect(Organized(tgt).paths.minimize.toSeq) }
 
-        val recursiveTargets: Map[String, Iterable[Seq[Type]]] =
+        /*val recursiveTargets: Map[String, Iterable[Seq[Type]]] =
           organizedRepository.par.mapValues { cType =>
             /*debugPrint(orgTgt, "Covering component")
             debugPrint(cType.paths, "Using paths")*/
@@ -224,6 +337,10 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
                 .mapValues(pathComponents => covers(orgTgt, pathComponents))
                 .values.flatten
             }
+          }.toMap.seq*/
+        val recursiveTargets =
+          splittedRepository.par.mapValues { cType =>
+            splitCover(cType, orgTgt).map(_._1.reverse)
           }.toMap.seq
         val (newProductions, newTargets) = newProductionsAndTargets(recursiveTargets)
         /*newTargets.map(debugPrint(_, "Recursively inhabiting"))*/

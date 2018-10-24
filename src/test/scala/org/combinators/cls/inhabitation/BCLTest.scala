@@ -44,14 +44,13 @@ class BCLTest extends FunSpec {
       it("should not be empty") {
         assert(results.nonEmpty)
       }
-      it("should unroll exactly to Tree(map, _, Tree(f, _), Tree(l, _))") {
-        assert(
-          TreeGrammarEnumeration(results, tgt)
-            .values
-            .flatMap(_._2).toSet ==
-            Set(Tree("map", Constructor("List", Constructor("String")), Tree("f", Arrow(Constructor("Int"), Constructor("String"))) ,Tree("l", Constructor("List", Constructor("Int")))), Tree("map",Constructor("List", Constructor("String")), Tree("f",Arrow(Constructor("Char"), Constructor("String"))), Tree("l", Constructor("List", Constructor("Char"))))))
-
-
+      it("should unroll exactly to Tree(map, _, Seq(Tree(f, _, Seq()), Tree(l, _, Seq())))") {
+        def isExpectedTree(t: Tree): Boolean =
+          t.name == "map" &&
+            t.arguments.size == 2 &&
+            t.arguments.headOption.exists(arg => arg.name == "f" && arg.arguments.isEmpty) &&
+            t.arguments.tail.headOption.exists(arg => arg.name == "l" && arg.arguments.isEmpty)
+        assert(TreeGrammarEnumeration(results, tgt).values.forall(_._2.forall(isExpectedTree)))
       }
     }
   }
