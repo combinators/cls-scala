@@ -48,7 +48,7 @@ class DynamicCombinatorTest extends FunSpec {
     describe("When dynamically agumented with MakeSense") {
      describe("when inhabiting NonSense") {
         val inhabitants = augmentedResult.inhabit[String]('NonSense)
-        describe("Should find NonSense") {
+        it("Should find NonSense") {
           assert(!inhabitants.isEmpty)
           assert(inhabitants.size.exists(_ > 0))
           assert(inhabitants.interpretedTerms.index(0) == "41")
