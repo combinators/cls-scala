@@ -8,7 +8,7 @@ import org.scalatest.FunSpec
 import scala.util.Random
 
 class LabyrinthTest extends FunSpec {
-  val labyrinthSize = 50
+  val labyrinthSize = 10
   val start: (Int, Int) = (Random.nextInt(labyrinthSize), Random.nextInt(labyrinthSize))
   val goal: (Int, Int) = (Random.nextInt(labyrinthSize), Random.nextInt(labyrinthSize))
 
