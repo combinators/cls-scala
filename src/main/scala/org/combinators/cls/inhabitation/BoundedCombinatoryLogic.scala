@@ -47,18 +47,16 @@ class BoundedCombinatoryLogic(substitutionSpace: FiniteSubstitutionSpace, subtyp
     subst(sigma)
   }
 
-  /** Applies all substitutions of `kinding` to type `sigma`. */
-  private def blowUp(sigma: => Type): Finite[Seq[Type with Path]] =
-    if (substitutions.values.isEmpty) Finite.singleton(Organized(sigma).paths)
-    else substitutions.map { s => Organized(applySubst(s)(sigma)).paths }
-
-  /** Applies all substitutions of `kinding` to every combinator type in `Gamma`. */
-  private def blowUp(Gamma: => Repository): Repository = Gamma.mapValues { ty =>
-    val paths = blowUp(ty).values.view.map(_.minimize)
-    Organized.intersect(paths:_*)
+  /** Applies all substitutions to every combinator type in `Gamma`. */
+  private def blowUp(Gamma: => Repository): Repository = {
+    if (substitutions.values.isEmpty) Gamma else {
+      Gamma.mapValues(ty => substitutions.values.tail.foldLeft(applySubst(substitutions.values.head)(ty)) {
+        case (res, s) => Intersection(res, applySubst(s)(ty))
+      })
+    }
   }
 
-  /** The repository expanded by every substitution in `kinding`. */
+  /** The repository expanded by every allowed substitution. */
   lazy val repository: Repository = blowUp(Gamma)
   /** The algorithm used for inhabitation with the expanded repository. */
   lazy val algorithm: FiniteCombinatoryLogic = new FiniteCombinatoryLogic(subtypes, repository)
