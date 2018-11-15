@@ -121,7 +121,6 @@ object Organized {
   * @param taxonomicSubtypesOf the taxonomy, where each constructor name is mapped to its directly smaller successors.
   */
 case class SubtypeEnvironment(taxonomicSubtypesOf: Map[String, Set[String]]) {
-
   /** Computes a transitive closure step of a taxonomy.
     * For `x, y, z` with `y` in `state(x)` and `z` in `state(y)` we have `z` in `transitiveClosureStep(state)._2(x)`.
     * @return the new taxonomy and a boolean indicating if any new entries had to be added.
@@ -198,30 +197,30 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: Map[String, Set[String]]) {
     }
   }
 
+  private final def checkSubtypes(subType: Type, superType: Type): Boolean = {
+    def tgtForSrcs(gte: Type, in: Seq[(Type, Type)]): Seq[Type] =
+      in.collect { case (src, tgt) if checkSubtypes(gte, src) => tgt }
+
+    superType match {
+      case Omega => true
+      case ctor@Constructor(_, arg) =>
+        val casted = cast(ctor, subType)
+        casted.nonEmpty && checkSubtypes(Type.intersect(casted), arg)
+      case arr@Arrow(src, tgt) =>
+        tgt.isOmega || checkSubtypes(Type.intersect(tgtForSrcs(src, cast(arr, subType))), tgt)
+      case p@Product(tau1, tau2) =>
+        val (sigmas1, sigmas2) = cast(p, subType).unzip
+        sigmas1.nonEmpty && checkSubtypes(Type.intersect(sigmas1), tau1) && checkSubtypes(Type.intersect(sigmas2), tau2)
+      case Intersection(tau1, tau2) =>
+        checkSubtypes(subType, tau1) && checkSubtypes(subType, tau2)
+      case _ => false
+    }
+  }
+
   /** Instance of the subtype relation type class which operates on casted types */
   implicit class toTypeRelationOf(sigma: Type) extends TypeRelationOf {
-
-    private final def tgtForSrcs(gte: Type, in: Seq[(Type, Type)]): Seq[Type] =
-      in.collect { case (src, tgt) if gte.isSubtypeOf(src) => tgt }
-
-    override def isSubtypeOf(tau: Type): Boolean = {
-      tau match {
-        case Omega => true
-        case ctor@Constructor(_, arg) =>
-          val casted = cast(ctor, sigma)
-          casted.nonEmpty && Type.intersect(casted).isSubtypeOf(arg)
-        case arr@Arrow(src, tgt) =>
-          tgt.isOmega || Type.intersect(tgtForSrcs(src, cast(arr, sigma))).isSubtypeOf(tgt)
-        case p@Product(tau1, tau2) =>
-          val (sigmas1, sigmas2) = cast(p, sigma).unzip
-          sigmas1.nonEmpty && Type.intersect(sigmas1).isSubtypeOf(tau1) && Type.intersect(sigmas2).isSubtypeOf(tau2)
-        case Intersection(tau1, tau2) =>
-          isSubtypeOf(tau1) && isSubtypeOf(tau2)
-        case _ => false
-      }
-    }
-
-    override def isSupertypeOf(tau: Type): Boolean = tau.isSubtypeOf(sigma)
+    override def isSubtypeOf(tau: Type): Boolean = checkSubtypes(sigma, tau)
+    override def isSupertypeOf(tau: Type): Boolean = checkSubtypes(tau, sigma)
   }
 
   object Minimizable {
