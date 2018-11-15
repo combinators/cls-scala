@@ -8,13 +8,16 @@ import org.scalatest.FunSpec
 import scala.util.Random
 
 class LabyrinthTest extends FunSpec {
-  val labyrinthSize = 10
-  val start: (Int, Int) = (Random.nextInt(labyrinthSize), Random.nextInt(labyrinthSize))
-  val goal: (Int, Int) = (Random.nextInt(labyrinthSize), Random.nextInt(labyrinthSize))
+
+  val labyrinthSize = { Random.setSeed(4242); 10 }
+  val start: (Int, Int) = (0, 0)
+  val goal: (Int, Int) = (labyrinthSize-1, labyrinthSize-1)
+  val p: Double = 1.0/4.0
 
   val blocked: Array[Array[Boolean]] = {
-    val arr = Array.ofDim[Boolean](labyrinthSize, labyrinthSize).map(row => row.map(_ => Random.nextBoolean()))
-    arr(start._2).update(start._1, false)
+    val arr = Array.ofDim[Boolean](labyrinthSize, labyrinthSize).map(row => row.map(_ => Random.nextDouble() <= p))
+    arr(start._1).update(start._2, false)
+    arr(goal._1).update(goal._2, false)
     arr
   }
 
@@ -22,20 +25,15 @@ class LabyrinthTest extends FunSpec {
     (1 to x).foldLeft[Type]('Z)((n, _) => 'S(n))
 
   def anyPos(v: Variable): Kinding =
-    (1 to labyrinthSize).foldLeft(Kinding(v))((k, n) => k.addOption(intToType(n)))
+    (0 until labyrinthSize).foldLeft(Kinding(v))((k, n) => k.addOption(intToType(n)))
   val positionRow = Variable("posRow")
   val positionColumn = Variable("posCol")
   val kinding = anyPos(positionRow).merge(anyPos(positionColumn))
 
   val freeFields: Map[String, Type] =
-    blocked.indices.foldLeft(Map.empty[String, Type]){
-      case (m, row) =>
-        blocked(row).indices.foldLeft(m){
-          case (m, col) if !blocked(row)(col) =>
-            m.updated(s"Pos_at_($row, $col)", 'Free(intToType(row), intToType(col)))
-          case _ => m
-        }
-    }
+    (0 until labyrinthSize).flatMap(row => (0 until labyrinthSize).collect {
+      case col if !blocked(row)(col) => s"Pos_at_($row, $col)" -> 'Free(intToType(row), intToType(col))
+     }).toMap
 
   val movements: Map[String, Type] =
     Map(
@@ -58,6 +56,12 @@ class LabyrinthTest extends FunSpec {
         lazy val results = Gamma.inhabit(tgt)
         it("should finish inhabitation") {
           assert(results.isEmpty || results.nonEmpty)
+        }
+        lazy val enum = TreeGrammarEnumeration(results, tgt)
+        if (results.nonEmpty) {
+          it("should find some results if the grammar is non-empty") {
+            assert(enum.index(0) != null)
+          }
         }
       }
     }
