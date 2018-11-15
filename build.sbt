@@ -39,7 +39,9 @@ lazy val root = (Project(id = "cls-scala", base = file(".")))
         "org.combinators" %% "shapeless-feat" % "0.2.2",
         "org.scala-lang" % "scala-compiler" % scalaVersion.value,
         "org.scalactic" %% "scalactic" % "3.0.5" % "test",
-        "org.scalatest" %% "scalatest" % "3.0.5" % "test"
+        "org.scalatest" %% "scalatest" % "3.0.5" % "test",
+        "ch.qos.logback" % "logback-classic" % "1.2.3",
+        "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0"
       )
     )
 
