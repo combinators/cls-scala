@@ -4,7 +4,7 @@ import sbt.Resolver
 lazy val commonSettings = Seq(
   organization := "org.combinators",
 
-  scalaVersion := "2.12.6",
+  scalaVersion := "2.12.7",
   crossScalaVersions := Seq("2.11.12", scalaVersion.value),
 
   resolvers ++= Seq(
@@ -53,7 +53,6 @@ lazy val publishSettings = Seq(
     Developer("heineman", "George T. Heineman", "heineman@wpi.edu", url("http://www.cs.wpi.edu/~heineman")),
     Developer("BorisDuedder", "Boris Düdder", "boris.d@di.ku.dk", url("http://duedder.net"))
   ),
-
   pgpPublicRing := file("travis/local.pubring.asc"),
   pgpSecretRing := file("travis/local.secring.asc"),
 )
