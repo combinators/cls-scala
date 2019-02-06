@@ -17,12 +17,8 @@
 package org.combinators.cls.inhabitation
 
 import org.combinators.cls.types._
-import shapeless.feat.Finite
 import com.typesafe.scalalogging.LazyLogging
 
-import scala.PartialFunction
-import scala.annotation.tailrec
-import scala.collection.BitSet
 
 /** Type inhabitation for finite combinatory logic (FCL) */
 class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: Repository) extends LazyLogging {
@@ -34,8 +30,15 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
   /** An organized version of `repository` given in the constructor. */
   //private val organizedRepository: Map[String, Type with Organized] = repository.mapValues(ty => Organized(ty))
 
-  private val splittedRepository: Map[String, Seq[Seq[(Seq[Type], Type)]]] =
-    time ("splitting combinator types") ( repository.mapValues(split) )
+  private val splittedRepository: Map[String, (Seq[Seq[(Seq[Type], Type)]], Seq[Type])] =
+    time("splitting combinator types")(repository.mapValues {ty =>
+      val splits = splitTy(ty)
+      val minimalTypes = splits.foldLeft[Seq[Type]](Seq.empty){
+        case (s, (_, tgt) +: split) => Type.intersect(tgt +: split.map(_._2)) +: s
+        case (s, Seq()) => s
+      }
+      (splits, minimalTypes)
+    })
 
 
 
@@ -48,70 +51,9 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     x
   }
 
-  /*sealed trait Split {
-    def step: Split
-    def run: Seq[Seq[(Seq[Type], Type)]] = {
-      var last = this
-      var next = step
-      while (last != next) {
-        last = next
-        next = last.step
-      }
-      last.asInstanceOf[Result].delta
-    }
-  }
-  case class Result(delta: Seq[Seq[(Seq[Type], Type)]]) extends Split {
-    def step: Split = this
-  }
-  case class SplitRec(ty: Type, srcs: Seq[Type], delta: Seq[Seq[(Seq[Type], Type)]]) extends Split {
-    def addToHead[A](x: A, xss: Seq[Seq[A]]): Seq[Seq[A]] =
-      xss match {
-        case Seq() => Seq(Seq(x))
-        case xs +: xsstl => (x +: xs) +: xsstl
-      }
-    def safeSplit[A](xss: Seq[Seq[A]]): (Seq[A], Seq[Seq[A]]) =
-      xss match {
-        case Seq() => (Seq.empty, Seq(Seq.empty))
-        case xs +: Seq() => (xs, Seq(Seq.empty))
-        case xs +: xsstl => (xs, xsstl)
-      }
-    def step: Split =
-      ty match {
-        case ctor@Constructor(_, _) => Result(addToHead((srcs, ctor), delta))
-        case p@Product(_, _) => Result(addToHead((srcs, p), delta))
-        case Omega => Result(delta)
-        case Arrow(_, tgt) if tgt.isOmega => Result(delta)
-        case arr@Arrow(src, tgt) =>
-          ContinueAfter(SplitRec(tgt, src +: srcs, delta), delta => Result(Seq((srcs, arr)) +: delta))
-        case Intersection(ctor@Constructor(_, _), tau) =>
-          ContinueAfter(SplitRec(tau, srcs, delta), delta => Result(addToHead((srcs, ctor), delta)))
-        case Intersection(p@Product(_, _), tau) =>
-          ContinueAfter(SplitRec(tau, srcs, delta), delta => Result(addToHead((srcs, p), delta)))
-        case Intersection(Omega, tau) => SplitRec(tau, srcs, delta)
-        case Intersection(Arrow(_, tgt), tau) if tgt.isOmega => SplitRec(tau, srcs, delta)
-        case Intersection(arr@Arrow(src, tgt), tau) =>
-          ContinueAfter(SplitRec(tau, srcs, delta), delta => {
-            val (delta1, delta2) = safeSplit(delta)
-            ContinueAfter(
-              SplitRec(tgt, src +: srcs, delta2),
-              delta => Result(((srcs, arr) +: delta1) +: delta)
-            )
-          })
-        case Intersection(Intersection(sigma1, sigma2), tau) =>
-          SplitRec(Intersection(sigma1, Intersection(sigma2, tau)), srcs, delta)
-      }
-  }
-  case class ContinueAfter(task: Split, continue: Seq[Seq[(Seq[Type], Type)]] => Split) extends Split {
-    def step: Split =
-      task match {
-        case Result(delta) => continue(delta)
-        case ContinueAfter(nextTask, nextContinue) =>
-          ContinueAfter(nextTask, delta => ContinueAfter(nextContinue(delta), continue))
-        case _ => ContinueAfter(task.step, continue)
-      }
-  }*/
+  type MultiArrow = (Seq[Type], Type)
 
-  private def split(ty: Type): Seq[Seq[(Seq[Type], Type)]] = {
+  private final def splitTy(ty: Type): Seq[Seq[MultiArrow]] = {
     def safeSplit[A](xss: Seq[Seq[A]]): (Seq[A], Seq[Seq[A]]) =
       xss match {
         case Seq() => (List.empty, List(List.empty))
@@ -138,298 +80,95 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     else splitRec(ty, List.empty, List((List.empty, ty) +: List.empty))
   }
 
-  private def addToSplit(split: (Seq[Type], Type), toAdd: (Seq[Type], Type)): (Seq[Type], Type) =
-    (split._1.zip(toAdd._1).map { case (src1, src2) => Intersection(src1, src2) },
-      Intersection(split._2, toAdd._2))
+  private final def partitionCover(covered: Set[Type with Path], toCover: Seq[Type with Path]):
+    (Seq[Type with Path], Seq[Type with Path]) =
+    toCover.partition(covered.contains)
 
+  private final def dcap(sigma: Type, tau: Type): Type =
+    if (sigma.isSubtypeOf(tau)) sigma
+    else if (tau.isSubtypeOf(sigma)) tau
+    else Intersection(sigma, tau)
 
-  sealed trait Cover {
-    def step: Cover
-    def run: Seq[(Seq[Type], Type)] = {
-      var last = this
-      var next = step
-      while (last != next) {
-        last = next
-        next = last.step
-      }
-      last.asInstanceOf[CoverResult].delta
-    }
-  }
-  case class SplitCover(splits: Seq[(Seq[Type], Type, Set[Type with Path])],
+  private final def mergeMultiArrow(arrow: MultiArrow, srcs: Seq[Type], tgt: Type): MultiArrow =
+    (arrow._1.zip(srcs).map(srcs => dcap(srcs._1, srcs._2)), Intersection(arrow._2, tgt))
+
+  private type State = Seq[MultiArrow]
+  private sealed trait Instruction
+  private case class Cover(splits: Seq[(MultiArrow, Set[Type with Path])], toCover: Seq[Type with Path])
+    extends Instruction
+  private case class ContinueCover(
+    splits: Seq[(MultiArrow, Set[Type with Path])],
     toCover: Seq[Type with Path],
-    currentResult: Option[(Seq[Type], Type)],
-    delta: Seq[(Seq[Type], Type)]) extends Cover {
-    def changedCover(covered: Set[Type with Path], toCover: Seq[Type with Path]): Option[Seq[Type with Path]] = {
-      val (removed, result) = toCover.partition(covered)
-      if (removed.isEmpty) None else Some(result)
-    }
-    def areSubsumedBy(srcs: Seq[Type], bySrcs: Seq[Type]): Boolean =
-      srcs.corresponds(bySrcs) { case (src, bySrc) => bySrc.isSubtypeOf(src) }
-    def step: Cover = {
-      splits match {
-        case (srcs, tgt, covered) +: splitsTl =>
-          (changedCover(covered, toCover), currentResult) match {
-            case (Some(Seq()), None) =>
-              ContinueToCover(SplitCover(splitsTl, toCover, currentResult, delta), delta => CoverResult((srcs, tgt) +: delta))
-            case (Some(Seq()), Some(result)) =>
-              ContinueToCover(SplitCover(splitsTl, toCover, currentResult, delta),
-                delta => CoverResult(addToSplit(result, (srcs, tgt)) +: delta))
-            case (Some(remaining), Some((currentSrcs, currentTgt)))
-              if areSubsumedBy(srcs, currentSrcs) =>
-              SplitCover(splitsTl, remaining, Some((currentSrcs, Intersection(tgt, currentTgt))), delta)
-            case (Some(remaining), Some(result)) =>
-              ContinueToCover(
-                SplitCover(splitsTl, toCover, currentResult, delta),
-                delta => SplitCover(splitsTl, remaining, Some(addToSplit(result, (srcs, tgt))), delta)
-              )
-            case (Some(remaining), None) =>
-              ContinueToCover(
-                SplitCover(splitsTl, toCover, currentResult, delta),
-                delta => SplitCover(splitsTl, remaining, Some((srcs, tgt)), delta)
-              )
-            case (None, _) => SplitCover(splitsTl, toCover, currentResult, delta)
-          }
+    currentResult: MultiArrow) extends Instruction
 
-        case Seq() => CoverResult(delta)
-      }
-    }
-
-  }
-  case class CoverResult(delta: Seq[(Seq[Type], Type)]) extends Cover {
-    def step: Cover = this
-  }
-  case class ContinueToCover(task: Cover, continue: Seq[(Seq[Type], Type)] => Cover) extends Cover {
-    def step: Cover =
-      task match {
-        case CoverResult(delta) => continue(delta)
-        case ContinueToCover(nextTask, nextContinue) =>
-          ContinueToCover(nextTask, delta => ContinueToCover(nextContinue(delta), continue))
-        case _ => ContinueToCover(task.step, continue)
-      }
-  }
-
-
-  private def splitCover(allSplits: Seq[Seq[(Seq[Type], Type)]], toCover: Type with Organized): Seq[(Seq[Type], Type)] = {
-    val coverSet = MinimalPathSet(toCover.paths).minimize.toSet
-    allSplits.foldLeft[Seq[(Seq[Type], Type)]](List.empty[(Seq[Type], Type)]) {
-      case (delta, splits) =>
-        val splitsWithCover =
-          splits
-            .map { case (srcs, tgt) => (srcs, tgt, coverSet.filter(_.isSupertypeOf(tgt))) }
-            .filter { case (_, _, covered) => covered.nonEmpty }
-        SplitCover(splitsWithCover, toCover.paths, None, delta).run
-    }
-  }
-
-  /*private def splitCover(allSplits: Seq[Seq[(Seq[Type], Type)]], toCover: Type with Organized): Seq[(Seq[Type], Type)] =
-    time("computing covers") {
-
-    def subsumedResult(options: Seq[(Seq[Type], Type)], subsumedBy: (Seq[Type], Type)): (Boolean, (Seq[Type], Type)) = {
-      options match {
-        case Seq() => (false, subsumedBy)
-        case (args, tgt) +: otherOptions
-          if args.corresponds(subsumedBy._1) { case (arg, subsuming) => subsuming.isSupertypeOf(arg) } =>
-          val continue = if (subsumedBy._2.isSubtypeOf(tgt)) subsumedBy else (subsumedBy._1, Intersection(subsumedBy._2, tgt))
-          (true, subsumedResult(otherOptions, continue)._2)
-        case _ +: otherOptions =>
-          subsumedResult(otherOptions, subsumedBy)
-      }
-    }
-
-    def splitCoverRec(toCover: Seq[(Type with Path, Seq[(Seq[Type], Type)])], currentResult: (Seq[Type], Type), delta: Seq[(Seq[Type], Type)]): Seq[(Seq[Type], Type)] = {
-      toCover match {
-        case Seq() => currentResult +: delta
-        case (path, _) +: restToCover if currentResult._2.isSubtypeOf(path) =>
-          splitCoverRec(restToCover, currentResult, delta)
-        case (path, options) +: restToCover =>
-          val (redundant, nextResult) = subsumedResult(options, currentResult)
-          if (redundant) splitCoverRec(restToCover, nextResult, delta)
-          else {
-            options.foldLeft(delta){ case (s, option) =>
-              val nextResult = addToSplit(currentResult, option)
-              splitCoverRec(restToCover, nextResult, s) }
-
-          }
-      }
-    }
-
-    allSplits.foldLeft[Seq[(Seq[Type], Type)]](List.empty){
-      case (delta, splits) => {
-        val pathsWithSplits = toCover.paths.map(path => (path, splits.filter(_._2.isSubtypeOf(path))))
-        if (pathsWithSplits.isEmpty || pathsWithSplits.exists(_._2.isEmpty)) delta else {
-          pathsWithSplits.head._2.foldLeft(delta) {
-            case (nextDelta, option) => splitCoverRec(pathsWithSplits.tail, option, nextDelta)
-          }
+  private final def step(state: State, program: Seq[Instruction]): (State, Seq[Instruction]) = {
+    program match {
+      case ContinueCover((m, covered) +: splits, toCover, currentResult) +: restOfProgram =>
+        val (freshlyCovered, uncovered) = partitionCover(covered, toCover)
+        if (freshlyCovered.isEmpty) (state, ContinueCover(splits, toCover, currentResult) +: restOfProgram)
+        else {
+          val merged = mergeMultiArrow(currentResult, m._1, m._2)
+          if (uncovered.isEmpty)
+            (merged +: state, ContinueCover(splits, toCover, currentResult) +: restOfProgram)
+          else if (merged._1 == currentResult._1) (state, ContinueCover(splits, uncovered, merged) +: restOfProgram)
+          else (state, ContinueCover(splits, uncovered, merged) +: ContinueCover(splits, toCover, currentResult) +: restOfProgram)
         }
-      }
-    }
-  }*/
-  /*private def splitCover(allSplits: Seq[Seq[(Seq[Type], Type)]], toCover: Type with Organized): Seq[(Seq[Type], Type)] =
-  time("computing covers") {
-    def splitCoverRec(
-      splits: Seq[(Seq[Type], Type)],
-      toCover: Seq[(Type with Path, BitSet)],
-      currentResult: (Seq[Type], Type),
-      delta: Seq[(Seq[Type], Type)]): Seq[(Seq[Type], Type)] = {
-      toCover match {
-        case Seq() => currentResult +: delta
-        case (path, options) +: restToCover =>
-          options.foldLeft(delta) {
-            case (nextDelta, idx) =>
-              val split = splits(idx)
-              /*val redundant =
-                split._1.corresponds(currentResult._1)((arg, existingArg) => arg.isSubtypeOf(existingArg)) &&
-                  currentResult._2.isSubtypeOf(split._2)*/
-              /*val potentialNextToCover =
-                restToCover.foldLeft[Option[Seq[(Type with Path, BitSet)]]](Some(List.empty)) {
-                  case (None, _) => None
-                  case (rest, (_, coveredBy)) if coveredBy(idx) => rest
-                  case (Some(rest), (nextPath, coveredBy)) =>
-                    val coveredByRemaining = coveredBy.&~(options)
-                    if (coveredByRemaining.isEmpty) None
-                    else Some((nextPath, coveredByRemaining) +: rest)
-                }
-              potentialNextToCover.map { nextToCover =>
-                /*if (redundant) { println("skippio"); splitCoverRec(splits, nextToCover, currentResult, nextDelta) }
-                else*/ splitCoverRec(splits, nextToCover, addToSplit(currentResult, split), nextDelta)
-              }.getOrElse(nextDelta)*/
-            val potentialNextToCover =
-                restToCover.par.filterNot(_._2(idx)).map { case (p, cs) => (p, cs.&~(options)) }.seq
-            if (potentialNextToCover.exists(_._2.isEmpty)) nextDelta
-            else splitCoverRec(splits, potentialNextToCover, addToSplit(currentResult, split), nextDelta)
-          }
-      }
-    }
-
-    allSplits.map(_.toVector).foldLeft[Seq[(Seq[Type], Type)]](List.empty){
-      case (delta, splits) => {
-        val pathsWithSplits =
-          toCover.paths.map(path =>
-            (path, BitSet(splits.zipWithIndex.collect {
-              case (split, idx) if split._2.isSubtypeOf(path) => idx
-            } : _*)))
-        if (pathsWithSplits.isEmpty || pathsWithSplits.exists(_._2.isEmpty)) delta else {
-          pathsWithSplits.head._2.foldLeft(delta) {
-            case (nextDelta, idx) =>
-              val split = splits(idx)
-              /*val potentialNextToCover =
-                pathsWithSplits.tail.foldLeft[Option[Seq[(Type with Path, BitSet)]]](Some(List.empty)) {
-                  case (None, _) => None
-                  case (rest, (_, coveredBy)) if coveredBy(idx) => rest
-                  case (Some(rest), (nextPath, coveredBy)) =>
-                    val coveredByRemaining = coveredBy.&~(pathsWithSplits.head._2)
-                    if (coveredByRemaining.isEmpty) None
-                    else Some((nextPath, coveredByRemaining) +: rest)
-                }
-              potentialNextToCover
-                .map(nextToCover => splitCoverRec(splits, nextToCover, split, nextDelta))
-                .getOrElse(nextDelta)*/
-              val potentialNextToCover =
-                pathsWithSplits.tail.par.filterNot(_._2(idx)).map { case (p, cs) => (p, cs.&~(pathsWithSplits.head._2)) }.seq
-              if (potentialNextToCover.exists(_._2.isEmpty)) nextDelta
-              else splitCoverRec(splits, potentialNextToCover, split, nextDelta)
-          }
-        }
-      }
-    }
-  }*/
-
-
-  /** Splits `path` into (argument, target)-pairs, relevant for inhabiting `target`.
-    * Relevant target components are path suffixes, which are supertypes of `target`.
-    * <code>
-    *   relevantFor('Int :&: ('Float =>: 'Int), 'String =>: 'Float =>: 'Int) =
-    *     Seq((Seq('String, 'Float), 'Int), (Seq('String), 'Float =>: 'Int))
-    * </code>
-    */
-  private def relevantFor(target: Type with Organized,
-    path: Type with Organized with Path): Seq[(Seq[Type], Type with Path)] = time("relevantFor") {
-    path match {
-      case Path(args, tgt) =>
-        args
-          .inits
-          .toSeq
-          .zip(args.tails.toSeq.reverse.map(Path(_, tgt)))
-          .filter { case (_, selected) => target.paths.exists(tgtP => tgtP.isSupertypeOf(selected)) }
+      case Cover((m, covered) +: splits, toCover) +: restOfProgram =>
+        val (freshlyCovered, uncovered) = partitionCover(covered, toCover)
+        if (freshlyCovered.isEmpty) (state, Cover(splits, toCover) +: restOfProgram)
+        else if (uncovered.isEmpty) (m +: state, Cover(splits, toCover) +: restOfProgram)
+        else (state, ContinueCover(splits, uncovered, m) +: Cover(splits, toCover) +: restOfProgram)
+      case ContinueCover(Seq(), _, _) +: restOfProgram => (state, restOfProgram)
+      case Cover(Seq(), _) +: restOfProgram => (state, restOfProgram)
+      case Seq() => (state, program)
     }
   }
 
-  /**
-    * Computes the piecewise intersection of argument types.
-    * Assumes all elements of `arguments` are of the same length.
-    * Example:
-    * <code>
-    *   intersectArguments(Seq('A, 'B =>: 'C :&: 'D), Seq('B, 'B =>: 'C :&: 'E)) =
-    *     Seq('A :&: 'B, ('B =>: 'C) :&: ('B =>: 'D) :&: ('B =>: 'E))
-    * </code>
-    */
-  private def intersectArguments(arguments: Seq[Seq[Type]]): Seq[Type with Organized] = time("intersecting arguments") {
-    if (arguments.isEmpty) Seq.empty else {
-      arguments.tail.aggregate(arguments.head.map(Organized(_)))(
-        (xs, ys) => Organized.intersectPiecewise(xs, ys.map(Organized(_))),
-        Organized.intersectPiecewise
-      )
-    }
-  }
-
-  /** Typeclass instance to minimize an argument collection wrt. to its cardinality under the constraint
-    * that inhabitant sets remain equal.
-    * We have:
-    * <code>
-    *   forall argvect in args,
-    *     exists argvect' in args.minimize,
-    *       forall i, argvect(i) <= argvect'(i)
-    * </code>
-    * Example:
-    * <code>
-    *   Seq(Seq('A :&: 'B, 'C), Seq('A, 'D), Seq('A :&: 'B, 'C :&: D)).minimize =
-    *     Seq(Seq('A :&: 'B, 'C), Seq('A, 'D))
-    * </code>
-    */
-  implicit class MinimalArguments(args: Seq[Seq[Type]]) extends Minimizable {
-    type T = Seq[Type]
-    def minimize: Seq[T] = {
-      def checkArgvectorRelation(lesserArgVect: Seq[Type], greaterArgVect: Seq[Type]): Boolean =
-        lesserArgVect.corresponds(greaterArgVect) {
-          case (lesserArg, greaterArg) => lesserArg.isSubtypeOf(greaterArg)
-        }
-      args.foldLeft(Seq.empty[Seq[Type]]) {
-        case (result, argVect) if result.exists(checkArgvectorRelation(argVect, _)) => result
-        case (result, argVect) => argVect +: result.filterNot(checkArgvectorRelation(_, argVect))
+  private final def minimize(s: State): State = {
+    def check(lesserArgVect: MultiArrow, greaterArgVect: MultiArrow): Boolean =
+      lesserArgVect._1.corresponds(greaterArgVect._1) {
+        case (lesser, greater) => lesser.isSubtypeOf(greater)
       }
+    s.foldLeft(Seq.empty[MultiArrow]) {
+      case (result, m) if result.exists(check(m, _)) => result
+      case (result, m) => m +: result.filterNot(check(_, m))
     }
   }
 
-  /**
-    * Finds all piecewise intersections of argument sequences in `paths`, such that
-    * correspondingly intersected targets are subtypes of `tgt`.
-    * Avoids selecting redundant paths and argument vectors.
-    * Assumes all argument sequences in `paths` are of equal length.
-    * Example:
-    * <code>
-    *   covers('A :&: 'B,
-    *     (Seq('X, P), 'A) +: (Seq('Y, Q), 'A) +: (Seq('Z, P), 'B) +: Seq.empty) ==
-    *     Seq('X :&: 'Z, P) +: Seq('Y :&: 'Z, P) +: Seq.empty
-    * </code>
-    */
-  final def covers(tgt: Type with Organized, paths: Seq[(Seq[Type], Type with Path)]): Seq[Seq[Type]] = time("covers") {
-    val coveringArgs: Iterable[Finite[Seq[Type]]] =
-      tgt.paths.foldLeft(Map.empty[Type with Path, Seq[Seq[Type]]]) {
-        case (r, toCover) =>
-          r.updated(toCover, paths.foldLeft(Seq.empty[Seq[Type]]) {
-            case (s, (args, tgt)) if tgt.isSubtypeOf(toCover) => args +: s
-            case (s, _) => s
-          })
-      }.values
-        .map(xs => xs.aggregate(Finite.empty[Seq[Type]])((xs, x) => xs.:+:(Finite.singleton(x)), (x, y) => x :+: y))
-
-    if (coveringArgs.isEmpty || coveringArgs.exists(_.cardinality == 0)) Seq.empty else {
-      coveringArgs.view.tail.foldLeft(coveringArgs.head.map(Seq(_))) {
-        case (s, args) => (args :*: s).map { case (x, y) => x +: y }
-      }.map(intersectArguments)
-        .values
-        .minimize
+  private final def pruneInstructions(state: State, program: Seq[Instruction]): Seq[Instruction] = {
+    program.collect {
+      case i@ContinueCover(_, _, currentResult)
+        if !state.exists(r => r._1.corresponds(currentResult._1){case (s, arg) => arg.isSubtypeOf(s)}) => i
+      case i@Cover(_, _) => i
     }
+  }
+
+
+  private final def cover(splits: Seq[Seq[MultiArrow]], targets: Seq[Type with Path]): State = {
+    val instructions = splits.collect { case ms =>
+      Cover(ms.map(m => (m, targets.filter(m._2.isSubtypeOf).toSet)), targets)
+    }
+    /*val machineState: (State, Seq[Instruction]) = (List.empty, instructions)
+    val res = Stream.iterate[(State, Seq[Instruction])](machineState)(x => step(x._1, x._2)).span(_._2.nonEmpty)._2.head._1
+    minimize(res)*/
+    //logger.debug(s"${splits.map(_.size).sum} -> ${res.size}")
+    //if (res.size > 100) {
+    //  logger.debug(s"${res.size} -> ${minimize(res).size}")
+    //}
+
+
+    var machineState: (State, Seq[Instruction]) = (Seq.empty, instructions)
+    //var i: Int = 0
+    while (machineState._2.nonEmpty) {
+      machineState = step(machineState._1, machineState._2)
+      /*i = (i + 1) % 100
+      if (i == 0) {
+        val prunedState = minimize(machineState._1)
+        machineState = (prunedState, pruneInstructions(prunedState, machineState._2))
+      }*/
+    }
+    minimize(machineState._1)
+
   }
 
   /** Substitutes all right hand side occurences in `grammar` of `oldType` by `newType`. */
@@ -466,15 +205,15 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     * </code>
     */
 
-  final def newProductionsAndTargets(results: Map[String, Iterable[Seq[Type]]]):
+  final def newProductionsAndTargets(results: scala.collection.parallel.ParIterable[(String, Iterable[Seq[Type]])]):
     (Set[(String, Seq[Type])], Stream[Stream[Type]]) = time("newProductionsAndTargets") {
-    results.foldLeft((Set.empty[(String, Seq[Type])], Stream.empty[Stream[Type]])){
+    results.aggregate((Set.empty[(String, Seq[Type])], Stream.empty[Stream[Type]]))({
         case ((productions, targetLists), (combinatorName, newTargetLists)) =>
           newTargetLists.foldLeft((productions, targetLists)) {
             case ((nextProductions, nextTargetsLists), nextTargetList) =>
               (nextProductions + ((combinatorName, nextTargetList)), nextTargetList.toStream #:: nextTargetsLists)
           }
-      }
+      }, {case ((rules1, tgts1), (rules2, tgts2)) => (rules1.union(rules2), tgts1 ++ tgts2) })
   }
 
   /** Performs a single inhabitation step.
@@ -489,37 +228,23 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     *         success without fresh targets.
     */
   final def inhabitStep(result: TreeGrammar, tgt: Type): (TreeGrammar, Stream[Stream[Type]]) = time("inhabitStep") {
-    logger.debug(s">>> Current target $tgt")
-    logger.debug(s">>> Result so far $result")
+    //logger.debug(s">>> Current target $tgt")
+    //logger.debug(s">>> Result so far $result")
     val knownSupertypes = findSupertypeEntries(result, tgt)
-    logger.debug(s"<<<<>>>>> SupertypeEntries: $knownSupertypes")
+    //logger.debug(s"<<<<>>>>> SupertypeEntries: $knownSupertypes")
     findSmallerEntry(knownSupertypes, tgt) match {
       case Some(kv) =>
-        logger.debug(s">>> Already present $kv")
+        //logger.debug(s">>> Already present $kv")
         (substituteArguments(result, tgt, kv._1), Stream.empty #:: Stream.empty[Stream[Type]]) // replace the target everywhere
       case None =>
-        val orgTgt = time("target organization") { Organized.intersect(Organized(tgt).paths.minimize) }
-
-        /*val recursiveTargets: Map[String, Iterable[Seq[Type]]] =
-          organizedRepository.par.mapValues { cType =>
-            /*debugPrint(orgTgt, "Covering component")
-            debugPrint(cType.paths, "Using paths")*/
-            val relevant = cType.paths
-              .flatMap(relevantFor(orgTgt, _))
-              /*.map(debugPrint(_, "Of those are relevant"))*/
-            if (orgTgt.paths.exists(tgtP => !relevant.exists(r => r._2.isSubtypeOf(tgtP)))) {
-              Iterable.empty
-            } else {
-              relevant
-                .groupBy(x => x._1.size)
-                .mapValues(pathComponents => covers(orgTgt, pathComponents))
-                .values.flatten
-            }
-          }.toMap.seq*/
+        val toCover = time("target organization") { Organized(tgt).paths.minimize }
+        //logger.debug(s"covering: ${toCover}")
         val recursiveTargets =
-          splittedRepository.par.mapValues { cType =>
-            splitCover(cType, orgTgt).map(_._1.reverse).minimize
-          }.toMap.seq
+          splittedRepository
+            .par
+            .filter { case (_, (_, minimalTypes)) => toCover.par.forall(tgt => minimalTypes.par.exists(ty => ty.isSubtypeOf(tgt))) }
+            .mapValues(sigma => cover(sigma._1, toCover).map(_._1.reverse))
+        //logger.debug(s"recursive targets: ${recursiveTargets}")
         val (newProductions, newTargets) = newProductionsAndTargets(recursiveTargets)
         /*newTargets.map(debugPrint(_, "Recursively inhabiting"))*/
 
@@ -591,9 +316,10 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     * The resulting tree grammar is pruned to eliminate unproductive derivation chains.
     */
   def inhabit(targets: Type*): TreeGrammar = {
-    logger.debug(s"Repository: $repository")
+    //logger.debug(s"Repository: $repository")
     val resultGrammar = inhabitRec(targets: _*).last._1
-    logger.debug(s"before pruning $resultGrammar")
+    logger.debug("now pruning")
+    //logger.debug(s"before pruning $resultGrammar")
     times.foreach(println(_))
     val resultGrammarWithAllTargets = targets.foldLeft(resultGrammar)(ensureTargetExistsIfEqualTypePresent)
     prune(resultGrammarWithAllTargets)

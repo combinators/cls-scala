@@ -55,10 +55,10 @@ class LabyrinthTest extends FunSpec {
         }
         lazy val results = Gamma.inhabit(tgt)
         it("should finish inhabitation") {
-          assert(results.isEmpty || results.nonEmpty)
+          assert(results.contains(tgt) || !results.contains(tgt))
         }
         lazy val enum = TreeGrammarEnumeration(results, tgt)
-        if (results.nonEmpty) {
+        if (results.contains(tgt)) {
           it("should find some results if the grammar is non-empty") {
             assert(enum.index(0) != null)
           }
