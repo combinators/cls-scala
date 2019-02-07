@@ -77,7 +77,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
       }
     }
     if (ty.isOmega) { List.empty }
-    else splitRec(ty, List.empty, List((List.empty, ty) +: List.empty))
+    else splitRec(ty, List.empty, List(List.empty, (List.empty, ty) +: List.empty))
   }
 
   private final def partitionCover(covered: Set[Type with Path], toCover: Seq[Type with Path]):
