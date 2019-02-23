@@ -56,28 +56,26 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
   private final def splitTy(ty: Type): Seq[Seq[MultiArrow]] = {
     def safeSplit[A](xss: Seq[Seq[A]]): (Seq[A], Seq[Seq[A]]) =
       xss match {
-        case Seq() => (List.empty, List(List.empty))
-        case xs +: Seq() => (xs, List(List.empty))
+        case Seq() => (List.empty, List.empty)
+        case xs +: Seq() => (xs, List.empty)
         case xs +: xsstl => (xs, xsstl)
-      }
-    def addToHead[A](x: A, xss: Seq[Seq[A]]): Seq[Seq[A]] =
-      xss match {
-        case Seq() => List(List(x))
-        case xs +: xsstl => (x +: xs) +: xsstl
       }
     def splitRec(ty: Type, srcs: Seq[Type], delta: Seq[Seq[(Seq[Type], Type)]]): Seq[Seq[(Seq[Type], Type)]] = {
       ty match {
-        case ty if ty.isOmega => delta
         case Arrow(src, tgt) =>
           val (xs, xss) = safeSplit(delta)
           ((src +: srcs, tgt) +: xs) +: splitRec(tgt, src +: srcs, xss)
+        case Intersection(sigma, tau) if sigma.isOmega =>
+          splitRec(tau, srcs, delta)
+        case Intersection(sigma, tau) if tau.isOmega =>
+          splitRec(sigma, srcs, delta)
         case Intersection(sigma, tau) =>
           splitRec(sigma, srcs, splitRec(tau, srcs, delta))
         case _ => delta
       }
     }
     if (ty.isOmega) { List.empty }
-    else splitRec(ty, List.empty, List(List.empty, (List.empty, ty) +: List.empty))
+    else List((List.empty, ty)) +: splitRec(ty, List.empty, List.empty)
   }
 
   private final def partitionCover(covered: Set[Type with Path], toCover: Seq[Type with Path]):
@@ -96,7 +94,13 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
   private sealed trait Instruction
   private case class Cover(splits: Seq[(MultiArrow, Set[Type with Path])], toCover: Seq[Type with Path])
     extends Instruction
+  private case class CheckCover(splits: Seq[(MultiArrow, Set[Type with Path])], toCover: Seq[Type with Path])
+    extends Instruction
   private case class ContinueCover(
+    splits: Seq[(MultiArrow, Set[Type with Path])],
+    toCover: Seq[Type with Path],
+    currentResult: MultiArrow) extends Instruction
+  private case class CheckContinueCover(
     splits: Seq[(MultiArrow, Set[Type with Path])],
     toCover: Seq[Type with Path],
     currentResult: MultiArrow) extends Instruction
