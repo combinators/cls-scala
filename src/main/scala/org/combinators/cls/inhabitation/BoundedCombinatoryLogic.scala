@@ -54,7 +54,7 @@ class BoundedCombinatoryLogic(substitutionSpace: FiniteSubstitutionSpace, subtyp
         if (ty.isClosed) ty
         else  substitutions.values.tail.foldLeft(applySubst(substitutions.values.head)(ty)) {
             case (res, s) => Intersection(applySubst(s)(ty), res)
-          })
+          }).toMap
     }
   }
 
@@ -64,7 +64,7 @@ class BoundedCombinatoryLogic(substitutionSpace: FiniteSubstitutionSpace, subtyp
   lazy val algorithm: FiniteCombinatoryLogic = new FiniteCombinatoryLogic(subtypes, repository)
 
   /** Performs inhabitation of every type in targets */
-  def inhabit(targets: Type*): TreeGrammar =
+  def inhabit(targets: Type*): Set[Rule] =
     algorithm.inhabit(targets: _*)
 }
 

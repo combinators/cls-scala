@@ -4,8 +4,8 @@ import sbt.Resolver
 lazy val commonSettings = Seq(
   organization := "org.combinators",
 
-  scalaVersion := "2.12.7",
-  crossScalaVersions := Seq("2.11.12", scalaVersion.value),
+  scalaVersion := "2.13.1",
+  crossScalaVersions := Seq("2.11.12", "2.12.10", scalaVersion.value),
 
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
@@ -14,14 +14,15 @@ lazy val commonSettings = Seq(
     Resolver.typesafeRepo("snapshots")
   ),
 
-  headerLicense := Some(HeaderLicense.ALv2("2018", "Jan Bessai")),
+  headerLicense := Some(HeaderLicense.ALv2("2018-2020", "Jan Bessai")),
 
   scalacOptions ++= Seq(
     "-unchecked",
     "-deprecation",
     "-feature",
     "-language:implicitConversions"
-  )
+  ),
+  scapegoatVersion in ThisBuild := "1.4.1"
 ) ++ publishSettings
 
 lazy val examples = (Project(id = "examples", base = file("examples")))
@@ -36,13 +37,27 @@ lazy val root = (Project(id = "cls-scala", base = file(".")))
     .settings(
       moduleName := "cls-scala",
       libraryDependencies ++= Seq(
-        "org.combinators" %% "shapeless-feat" % "0.2.2",
+        "org.combinators" %% "shapeless-feat" % "0.2.1+42-61e38852",
         "org.scala-lang" % "scala-compiler" % scalaVersion.value,
-        "org.scalactic" %% "scalactic" % "3.0.5" % "test",
-        "org.scalatest" %% "scalatest" % "3.0.5" % "test",
+        "org.scalactic" %% "scalactic" % "3.1.0" % "test",
+        "org.scalatest" %% "scalatest" % "3.1.0" % "test",
         "ch.qos.logback" % "logback-classic" % "1.2.3",
-        "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0"
-      )
+        "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
+      ),
+      libraryDependencies ++= {
+        CrossVersion.partialVersion(scalaVersion.value) match {
+          case Some((2, n)) if n >= 13 =>
+            Seq("org.scala-lang.modules" %% "scala-parallel-collections" % "0.2.0")
+	  case _ => Seq()
+	}
+      },
+      unmanagedSourceDirectories in Compile += {
+      	val sourceDir = (sourceDirectory in Compile).value
+	CrossVersion.partialVersion(scalaVersion.value) match {
+	  case Some((2, n)) if n >= 13 => sourceDir / "scala-2.13+"
+          case _                       => sourceDir / "scala-2.12-"
+        }
+      }
     )
 
 

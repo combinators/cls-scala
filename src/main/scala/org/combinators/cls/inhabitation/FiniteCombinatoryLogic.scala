@@ -16,6 +16,8 @@
 
 package org.combinators.cls.inhabitation
 
+import scala.collection.parallel.{ParSeq, ParSet}
+import org.combinators.cls.compat.ParallelCollectionConverters._
 import org.combinators.cls.types._
 import com.typesafe.scalalogging.LazyLogging
 
@@ -23,24 +25,15 @@ import com.typesafe.scalalogging.LazyLogging
 /** Type inhabitation for finite combinatory logic (FCL) */
 class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: Repository) extends LazyLogging {
   import subtypes._
-  private final val times: scala.collection.mutable.Map[String, BigInt] =
-    scala.collection.mutable.Map.empty[String, BigInt].withDefaultValue(0)
+  
+  type MultiArrow = (Seq[Type], Type)
 
 
-  /** An organized version of `repository` given in the constructor. */
-  //private val organizedRepository: Map[String, Type with Organized] = repository.mapValues(ty => Organized(ty))
+  /*private final val times: scala.collection.mutable.Map[String, BigInt] =
+    scala.collection.mutable.Map.empty[String, BigInt].withDefaultValue(0)*/
 
-  private val splittedRepository: Map[String, (Seq[Seq[(Seq[Type], Type)]], Seq[Type])] =
-    time("splitting combinator types")(repository.mapValues {ty =>
-      val splits = splitTy(ty)
-      val minimalTypes = splits.foldLeft[Seq[Type]](Seq.empty){
-        case (s, (_, tgt) +: split) => Type.intersect(tgt +: split.map(_._2)) +: s
-        case (s, Seq()) => s
-      }
-      (splits, minimalTypes)
-    })
-
-
+  private val splittedRepository: ParSeq[(String, Seq[Seq[MultiArrow]])] =
+    time("splitting combinator types")(repository.mapValues(splitTy).toSeq.par)
 
   private def time[R](location: String)(x: => R): R = {
     /*val before = System.currentTimeMillis()
@@ -51,7 +44,6 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     x
   }
 
-  type MultiArrow = (Seq[Type], Type)
 
   private final def splitTy(ty: Type): Seq[Seq[MultiArrow]] = {
     def safeSplit[A](xss: Seq[Seq[A]]): (Seq[A], Seq[Seq[A]]) =
@@ -78,292 +70,234 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     else List((List.empty, ty)) +: splitRec(ty, List.empty, List.empty)
   }
 
-  private final def partitionCover(covered: Set[Type with Path], toCover: Seq[Type with Path]):
-    (Seq[Type with Path], Seq[Type with Path]) =
-    toCover.partition(covered.contains)
-
   private final def dcap(sigma: Type, tau: Type): Type =
     if (sigma.isSubtypeOf(tau)) sigma
     else if (tau.isSubtypeOf(sigma)) tau
     else Intersection(sigma, tau)
 
-  private final def mergeMultiArrow(arrow: MultiArrow, srcs: Seq[Type], tgt: Type): MultiArrow =
-    (arrow._1.zip(srcs).map(srcs => dcap(srcs._1, srcs._2)), Intersection(arrow._2, tgt))
+  private final def partitionCover(covered: Set[Type], toCover: Seq[Type]): (Seq[Type], Seq[Type]) =
+    toCover.partition(covered.contains)
+
+  private final def stillPossible(splits: Seq[(MultiArrow, Set[Type])], toCover: Seq[Type]): Boolean =
+    toCover.forall(sigma => splits.exists(covered => covered._2.contains(sigma)))
+
+  private final def mergeMultiArrow(arrow1: MultiArrow, arrow2: MultiArrow): MultiArrow =
+    (arrow1._1.zip(arrow2._1).map{ case (srcs1, srcs2) => dcap(srcs1, srcs2) }, dcap(arrow1._2, arrow2._2))
 
   private type State = Seq[MultiArrow]
-  private sealed trait Instruction
-  private case class Cover(splits: Seq[(MultiArrow, Set[Type with Path])], toCover: Seq[Type with Path])
-    extends Instruction
-  private case class CheckCover(splits: Seq[(MultiArrow, Set[Type with Path])], toCover: Seq[Type with Path])
-    extends Instruction
+  private sealed trait CoverMachineInstruction
+  private case class Cover(splits: Seq[(MultiArrow, Set[Type])], toCover: Seq[Type])
+    extends CoverMachineInstruction
+  private case class CheckCover(splits: Seq[(MultiArrow, Set[Type])], toCover: Seq[Type])
+    extends CoverMachineInstruction
   private case class ContinueCover(
-    splits: Seq[(MultiArrow, Set[Type with Path])],
-    toCover: Seq[Type with Path],
-    currentResult: MultiArrow) extends Instruction
+    splits: Seq[(MultiArrow, Set[Type])],
+    toCover: Seq[Type],
+    currentResult: MultiArrow) extends CoverMachineInstruction
   private case class CheckContinueCover(
-    splits: Seq[(MultiArrow, Set[Type with Path])],
-    toCover: Seq[Type with Path],
-    currentResult: MultiArrow) extends Instruction
+    splits: Seq[(MultiArrow, Set[Type])],
+    toCover: Seq[Type],
+    currentResult: MultiArrow) extends CoverMachineInstruction
 
-  private final def step(state: State, program: Seq[Instruction]): (State, Seq[Instruction]) = {
+  private final def step(state: State, program: Seq[CoverMachineInstruction]): (State, Seq[CoverMachineInstruction]) = {
     program match {
+      case CheckCover(splits, toCover) +: restOfProgram if stillPossible(splits, toCover) =>
+        (state, Cover(splits, toCover) +: restOfProgram)
+      case CheckContinueCover(splits, toCover, currentResult) +: restOfProgram if stillPossible(splits, toCover) =>
+        (state, ContinueCover(splits, toCover, currentResult) +: restOfProgram)
       case ContinueCover((m, covered) +: splits, toCover, currentResult) +: restOfProgram =>
         val (freshlyCovered, uncovered) = partitionCover(covered, toCover)
         if (freshlyCovered.isEmpty) (state, ContinueCover(splits, toCover, currentResult) +: restOfProgram)
         else {
-          val merged = mergeMultiArrow(currentResult, m._1, m._2)
+          val merged = mergeMultiArrow(currentResult, m)
           if (uncovered.isEmpty)
             (merged +: state, ContinueCover(splits, toCover, currentResult) +: restOfProgram)
           else if (merged._1 == currentResult._1) (state, ContinueCover(splits, uncovered, merged) +: restOfProgram)
-          else (state, ContinueCover(splits, uncovered, merged) +: ContinueCover(splits, toCover, currentResult) +: restOfProgram)
+          else (state, ContinueCover(splits, uncovered, merged) +: CheckContinueCover(splits, toCover, currentResult) +: restOfProgram)
         }
       case Cover((m, covered) +: splits, toCover) +: restOfProgram =>
         val (freshlyCovered, uncovered) = partitionCover(covered, toCover)
         if (freshlyCovered.isEmpty) (state, Cover(splits, toCover) +: restOfProgram)
-        else if (uncovered.isEmpty) (m +: state, Cover(splits, toCover) +: restOfProgram)
-        else (state, ContinueCover(splits, uncovered, m) +: Cover(splits, toCover) +: restOfProgram)
-      case ContinueCover(Seq(), _, _) +: restOfProgram => (state, restOfProgram)
-      case Cover(Seq(), _) +: restOfProgram => (state, restOfProgram)
+        else if (uncovered.isEmpty) (m +: state, CheckCover(splits, toCover) +: restOfProgram)
+        else (state, ContinueCover(splits, uncovered, m) +: CheckCover(splits, toCover) +: restOfProgram)
+      case _ +: restOfProgram => (state, restOfProgram)
       case Seq() => (state, program)
     }
   }
 
-  private final def minimize(s: State): State = {
+  private final def coverMachine(state: State, program: Seq[CoverMachineInstruction]): State = {
+    var machine = (state, program)
+    while (!machine._2.isEmpty) {
+      machine = step(machine._1, machine._2)
+    }
+    machine._1
+  }
+
+  private final def reduceMultiArrows(ms: Seq[MultiArrow]): Seq[MultiArrow] = {
     def check(lesserArgVect: MultiArrow, greaterArgVect: MultiArrow): Boolean =
       lesserArgVect._1.corresponds(greaterArgVect._1) {
         case (lesser, greater) => lesser.isSubtypeOf(greater)
       }
-    s.foldLeft(Seq.empty[MultiArrow]) {
+    ms.foldLeft(Seq.empty[MultiArrow]) {
       case (result, m) if result.exists(check(m, _)) => result
       case (result, m) => m +: result.filterNot(check(_, m))
     }
   }
 
-  private final def pruneInstructions(state: State, program: Seq[Instruction]): Seq[Instruction] = {
-    program.collect {
-      case i@ContinueCover(_, _, currentResult)
-        if !state.exists(r => r._1.corresponds(currentResult._1){case (s, arg) => arg.isSubtypeOf(s)}) => i
-      case i@Cover(_, _) => i
-    }
-  }
-
-
-  private final def cover(splits: Seq[Seq[MultiArrow]], targets: Seq[Type with Path]): State = {
-    val instructions = splits.collect { case ms =>
-      Cover(ms.map(m => (m, targets.filter(m._2.isSubtypeOf).toSet)), targets)
-    }
-    /*val machineState: (State, Seq[Instruction]) = (List.empty, instructions)
-    val res = Stream.iterate[(State, Seq[Instruction])](machineState)(x => step(x._1, x._2)).span(_._2.nonEmpty)._2.head._1
-    minimize(res)*/
-    //logger.debug(s"${splits.map(_.size).sum} -> ${res.size}")
-    //if (res.size > 100) {
-    //  logger.debug(s"${res.size} -> ${minimize(res).size}")
-    //}
-
-
-    var machineState: (State, Seq[Instruction]) = (Seq.empty, instructions)
-    //var i: Int = 0
-    while (machineState._2.nonEmpty) {
-      machineState = step(machineState._1, machineState._2)
-      /*i = (i + 1) % 100
-      if (i == 0) {
-        val prunedState = minimize(machineState._1)
-        machineState = (prunedState, pruneInstructions(prunedState, machineState._2))
-      }*/
-    }
-    minimize(machineState._1)
-
-  }
-
-  /** Substitutes all right hand side occurences in `grammar` of `oldType` by `newType`. */
-  final def substituteArguments(grammar: TreeGrammar, oldType: Type, newType: Type): TreeGrammar =
-    grammar
-      .mapValues(entries =>
-        entries.map {
-          case (c, tgts) => (c, tgts.map(tgt => if (tgt == oldType) newType else tgt))
-        })
-
-
-  /** Finds all entries of `grammar` where the left hand side is a supertype of `ty`. */
-  final def findSupertypeEntries(grammar: TreeGrammar, ty: Type): TreeGrammar =
-    grammar.filter {
-      case (k, _) => k.isSupertypeOf(ty)
-    }
-
-  /** Finds an entries of `grammar` where the left hand side is a subtype of `ty`. */
-  final def findSmallerEntry(grammar: TreeGrammar, ty: Type): Option[(Type, Set[(String, Seq[Type])])] = time("findSmallerEntry") {
-    grammar.find {
-      case (k, _) => k.isSubtypeOf(ty)
-    }
-  }
-
-  /** Rearranges intermediate results to a set of new grammar rules and recursive targets.
-    * Input format: a map containing combinator names and alternative recursive targets to use that combinator.
-    * Output format: a set of combinator names with the respective parameter types to inhabit for using the combinator,
-    * and a collection of all parameter type collections to use the combinators in the set.
-    * Example:
-    * <code>
-    *   newProductionsAndTargets(Map("c" -> Seq(Seq('A, 'B), Seq('C), Seq('A, 'B))), "d" -> Seq(), "e" -> Seq(Seq())) ==
-    *     (Set(("c", Seq('A, 'B)), ("c", Seq('C)), ("e", Seq())),
-    *      Stream.empty #:: ('C #:: Stream.empty) #:: ('A #:: 'B #:: Stream.empty) #:: Stream.empty
-    * </code>
-    */
-
-  final def newProductionsAndTargets(results: scala.collection.parallel.ParIterable[(String, Iterable[Seq[Type]])]):
-    (Set[(String, Seq[Type])], Stream[Stream[Type]]) = time("newProductionsAndTargets") {
-    results.aggregate((Set.empty[(String, Seq[Type])], Stream.empty[Stream[Type]]))({
-        case ((productions, targetLists), (combinatorName, newTargetLists)) =>
-          newTargetLists.foldLeft((productions, targetLists)) {
-            case ((nextProductions, nextTargetsLists), nextTargetList) =>
-              (nextProductions + ((combinatorName, nextTargetList)), nextTargetList.toStream #:: nextTargetsLists)
-          }
-      }, {case ((rules1, tgts1), (rules2, tgts2)) => (rules1.union(rules2), tgts1 ++ tgts2) })
-  }
-
-  /** Performs a single inhabitation step.
-    * Finds combinators which can inhabit `tgt`, adds their application as right hand sides for the left hand side `tgt`
-    * and returns a stream of new targets for each combinator that was used.
-    * Replaces all occurences of `tgt` if a (subtype-)equal left hand side is already present.
-    *
-    * @param result the tree grammar constructed so far.
-    * @param tgt the current target.
-    * @return an updated tree grammar and a stream of new targets for every new right hand side;
-    *         empty target streams indicate failure, while `Stream.empty #:: Stream.empty[Stream[Type]]` indicates
-    *         success without fresh targets.
-    */
-  final def inhabitStep(result: TreeGrammar, tgt: Type): (TreeGrammar, Stream[Stream[Type]]) = time("inhabitStep") {
-    //logger.debug(s">>> Current target $tgt")
-    //logger.debug(s">>> Result so far $result")
-    val knownSupertypes = findSupertypeEntries(result, tgt)
-    //logger.debug(s"<<<<>>>>> SupertypeEntries: $knownSupertypes")
-    findSmallerEntry(knownSupertypes, tgt) match {
-      case Some(kv) =>
-        //logger.debug(s">>> Already present $kv")
-        (substituteArguments(result, tgt, kv._1), Stream.empty #:: Stream.empty[Stream[Type]]) // replace the target everywhere
-      case None =>
-        val toCover = time("target organization") { Organized(tgt).paths.minimize }
-        //logger.debug(s"covering: ${toCover}")
-        val recursiveTargets =
-          splittedRepository
-            .par
-            .filter { case (_, (_, minimalTypes)) => toCover.par.forall(tgt => minimalTypes.par.exists(ty => ty.isSubtypeOf(tgt))) }
-            .mapValues(sigma => cover(sigma._1, toCover).map(_._1.reverse))
-        //logger.debug(s"recursive targets: ${recursiveTargets}")
-        val (newProductions, newTargets) = newProductionsAndTargets(recursiveTargets)
-        /*newTargets.map(debugPrint(_, "Recursively inhabiting"))*/
-
-        (result + (tgt -> newProductions), newTargets)
-    }
-
-  }
-
-  /** Inhabits the arguments of a single combinator.
-    * Sequentially performs `inhabitStep` for each target in `tgts`.
-    * Aborts and rolls back, whenever a step along the way fails.
-    */
-  final def inhabitSequentially(grammar: TreeGrammar, tgts: Stream[Type]): (TreeGrammar, Stream[Stream[Type]]) = {
-    val (newGrammar, newTgts) =
-      tgts.foldLeft[(TreeGrammar, Option[Stream[Stream[Type]]])]((grammar, Some(Stream.empty))) {
-        case (s@(_, None), _) => s
-        case ((g, Some(result)), tgt) =>
-          inhabitStep(g, tgt) match {
-            case (newG, r@(_ #:: _)) => (newG, Some(result.append(r)))
-            case _ => (grammar, None)
-          }
+  private final def computeFailExisting(rules: Set[Rule], sigma: Type): (Boolean, Boolean) = {
+    var toCheck: Set[Rule] = rules
+    while (toCheck.nonEmpty) {
+      toCheck.head match {
+        case Failed(tau) if (sigma == tau) => 
+          return (true, true)
+        case Failed(tau) if (sigma.isSubtypeOf(tau)) => 
+          return (true, toCheck.contains(Failed(sigma)))
+        case Apply(target, _, tau) if (sigma == tau) =>
+          return (false, true)
+        case _ => toCheck = toCheck.tail
       }
-    (newGrammar, newTgts.getOrElse(Stream.empty))
+    }
+    (false, false)
   }
 
-  /** Inhabits the arguments of multiple combinators.
-    * Sequentially performs `inhabitSequentially` for each target stream in `tgts`.
-    * Continues with the next stream when a step along the way fails.
-    */
-  final def inhabitSequentiallyContinueIfFailing(grammar: TreeGrammar,
-    tgts: Stream[Stream[Type]]): (TreeGrammar, Stream[Stream[Type]]) = {
-    tgts.foldLeft((grammar, Stream.empty[Stream[Type]])) {
-      case ((g, accumulatedTgts), oldTgts) =>
-        val (newGrammar, newTgts) = inhabitSequentially(g, oldTgts)
-        (newGrammar, accumulatedTgts.append(newTgts))
+  private final def commitMultiArrow(rules: Seq[Rule], combinator: String, m: MultiArrow): Seq[Rule] = {
+    var srcs = m._1
+    var tgt = m._2
+    var result = rules
+    while (srcs.nonEmpty) {
+      val src = srcs.head
+      val arr = Arrow(src, tgt)
+      result = Apply(tgt, arr, src) +: result
+      srcs = srcs.tail
+      tgt = arr
+    }
+    Combinator(tgt, combinator) +: result
+  }
+
+  private final def commitUpdates(rules: Seq[Rule], target: Type, combinator: String, covers: Seq[MultiArrow]): Seq[Rule] = {
+    var result = rules
+    var remainingCovers = covers
+    while (remainingCovers.nonEmpty) {
+      result = commitMultiArrow(result, combinator, (remainingCovers.head._1, target))
+      remainingCovers = remainingCovers.tail
+    }
+    result
+  }
+ 
+  private final def dropTargets(rules: Seq[Rule]): Seq[Rule] = {
+    rules.dropWhile {
+      case Combinator(_, _) => false
+      case _ => true
     }
   }
 
-  /** Inhabits all elements of `targets`.
-    * Recursively performs inhabitation until there are now fresh targets.
-    * Continues with the next target on failure.
-    */
-  final def inhabitRec(targets: Type*): Stream[(TreeGrammar, Stream[Stream[Type]])] = {
-    val (steps, stable) =
-      Stream
-        .iterate((Map.empty[Type, Set[(String, Seq[Type])]], targets.map(_ #:: Stream.empty[Type]).toStream)) {
-          case (grammar, tgts) => inhabitSequentiallyContinueIfFailing(grammar, tgts)
-        }.span(_._2.nonEmpty)
-    steps :+ stable.head
+  private final def accumulateCovers(target: Type, toCover: Set[Type], state: (Seq[Rule], Boolean), combinator: String, combinatorType: Seq[Seq[MultiArrow]]): (Seq[Rule], Boolean) = {
+    val covers = 
+      coverMachine(
+        Seq.empty,
+        combinatorType.map(ms => Cover(ms.map(m => (m, toCover.filter(B => m._2.isSubtypeOf(B)))), toCover.toSeq))
+      )
+    (commitUpdates(state._1, target, combinator, reduceMultiArrows(covers)), state._2 && covers.isEmpty)
   }
 
-  /** Ensures `target` is present as a left hand side of `grammar`, if a (subtype-)equal left hand side exists.
-    * The preexisting left hand sides will be cloned.
-    * This is necessary, when `inhabitStep` substitutes equal types.
-    */
-  final def ensureTargetExistsIfEqualTypePresent(grammar: TreeGrammar, target: Type): TreeGrammar = {
-    if (!grammar.contains(target)) {
-      grammar.keys.find(ty => target.isSubtypeOf(ty) && target.isSupertypeOf(ty)) match {
-        case None => grammar
-        case Some(ty) => grammar + (target -> grammar(ty))
-      }
-    } else grammar
+  private final def inhabitCover(rules: Seq[Rule], target: Type): (Boolean, Seq[Rule]) = {
+    val primeFactors: Set[Type] = Organized(target).paths.minimize.toSet
+    val (todo, failed) =
+      splittedRepository.par.aggregate((Seq.empty[Rule], true))(
+        { case (s, (combinator, combinatorType)) => accumulateCovers(target, primeFactors, s, combinator, combinatorType) },
+        { case ((rules1, failed1), (rules2, failed2)) => (rules1 ++ rules2, failed1 && failed2) }
+      )
+    (failed, if (failed) rules else rules ++ todo)
   }
 
-  /** Inhabits all types in targets and return a tree grammar to represent results.
-    * The tree grammar will contain entries (sigma -> Seq((c, args), rhs)), where
-    * sigma is a target type, c is a combinator name, args are the argument types necessary for c to inhabit sigma and
-    * rhs are all possible other combinator name, argument type pairs for target sigma.
+  final private def omegaRules(target: Type): Set[Rule] = {
+    splittedRepository.aggregate(Set[Rule](Apply(target, target, target)))(
+      { case (rules, (combinator, _)) => rules + Combinator(target, combinator) },
+      { case (rules1, rules2) => rules1.union(rules2) }
+    )
+  }
+
+  final private def inhabitationStep(stable: Set[Rule], targets: Seq[Rule]): (Set[Rule], Seq[Rule]) = {
+    targets match {
+      case (c@Combinator(_, _)) +: restOfTargets => (stable + c, restOfTargets)
+      case (app@Apply(_, _, _)) +: restOfTargets if stable.contains(app) => (stable, restOfTargets)
+      case (app@Apply(sigma, tau, target)) +: restOfTargets =>
+        val (failed, existing) = computeFailExisting(stable, target)
+        if (failed) (if (existing) stable else stable + Failed(target), dropTargets(restOfTargets))
+        else if (existing) (stable + app, restOfTargets)
+        else if (target.isOmega) (stable.union(omegaRules(target)) + app, restOfTargets)
+        else {
+          val (inhabitFailed, nextTargets) = inhabitCover(restOfTargets, target)
+          if (inhabitFailed) (stable + Failed(target), dropTargets(restOfTargets))
+          else (stable + app, nextTargets)
+        }
+      case Failed(_) +: restOfTargets => (stable, dropTargets(restOfTargets))
+      case Seq() => (stable, Seq.empty[Rule])
+    }
+  }
+
+  final private def inhabitationMachine(stable: Set[Rule], targets: Seq[Rule]): Set[Rule] = {
+    var state = (stable, targets)
+    while (state._2.nonEmpty) {
+      state = inhabitationStep(state._1, state._2)
+    }
+    state._1
+  }
+
+  /** Inhabits all types in targets and return a set of tree grammar rules to represent results.
     * The resulting tree grammar is pruned to eliminate unproductive derivation chains.
     */
-  def inhabit(targets: Type*): TreeGrammar = {
-    //logger.debug(s"Repository: $repository")
-    val resultGrammar = inhabitRec(targets: _*).last._1
-    logger.debug("now pruning")
-    //logger.debug(s"before pruning $resultGrammar")
-    times.foreach(println(_))
-    val resultGrammarWithAllTargets = targets.foldLeft(resultGrammar)(ensureTargetExistsIfEqualTypePresent)
-    prune(resultGrammarWithAllTargets)
+  def inhabit(targets: Type*): Set[Rule] = {
+    val resultRules =
+      targets.foldLeft(Set.empty[Rule]) {
+        case (results, target) =>
+          if (target.isOmega) results.union(omegaRules(target))
+          else {
+            val (failed, existing) = computeFailExisting(results, target)
+            if (failed) {
+              if (existing) results else results + Failed(target)
+            } else {
+              val (inhabitFailed, targets) = inhabitCover(Seq.empty[Rule], target)
+              if (inhabitFailed) results + Failed(target)
+              else inhabitationMachine(results, targets)
+            }
+          }
+      }
+    prune(resultRules)
   }
 
-  /** Finds all productive left hand sides in `grammar`.
+  /** Finds all productive left hand sides in `rules`.
     * A left hand side is productive, if any of its right hand sides only requires arguments, which are productive
     * left hand sides of the grammar.
     */
-  final def groundTypesOf(grammar: TreeGrammar): Set[Type] = time("groundTypes") {
-    def groundStep(previousGroundTypes: Set[Type]): Set[Type] = {
-        grammar.foldLeft(previousGroundTypes) {
-          case (s, (k, vs))
-            if vs.exists { case (_, args) =>
-              args.forall(previousGroundTypes)
-            } => s + k
-          case (s, _) => s
-        }
-      }
-    lazy val groundStream = Stream.iterate(Set.empty[Type])(groundStep)
-    groundStream
-      .zip(groundStream.tail)
-      .takeWhile{ case (oldTypes, newTypes) => newTypes.size != oldTypes.size }
-      .lastOption
-      .map(_._2)
-      .getOrElse(Set.empty[Type])
+  final def groundTypesOf(rules: ParSet[Rule]): ParSet[Type] = time("groundTypes") {
+    def groundStep(previousGroundTypes: ParSet[Type]): ParSet[Type] = {
+      rules.par.aggregate(previousGroundTypes)(
+        { case (s, Apply(sigma, arr, tgt)) if s.contains(arr) && s.contains(tgt) => s + sigma
+          case (s, _) => s },
+        { case (s1, s2) => s1.union(s2) }
+      )
+    }
+    var lastGround: ParSet[Type] = ParSet.empty[Type]
+    var nextGround: ParSet[Type] = rules.collect { case Combinator(target, _) => target }
+    while (lastGround.size < nextGround.size) {
+      lastGround = nextGround
+      nextGround = groundStep(lastGround)
+    }
+    nextGround
   }
 
-  /** Removes all unproductive left hand sides in `grammar`.
-    * @see `FiniteCombinatoryLogic.groundTypesOf(TreeGrammar)` for a description of productivity.
+  /** Removes all unproductive left hand sides in `rules`.
+    * @see `FiniteCombinatoryLogic.groundTypesOf(Set[Rule])` for a description of productivity.
     */
-  def prune(grammar: TreeGrammar): TreeGrammar = time("prune") {
-    lazy val groundTypes = groundTypesOf(grammar)
-    grammar.foldLeft[TreeGrammar](Map.empty) {
-      case (g, (k, vs)) =>
-        val pruned = vs.filter {
-          case (_, args) => args.forall(groundTypes)
-        }
-        if (pruned.isEmpty) g else g + (k -> pruned)
-    }
+  def prune(rules: Set[Rule]): Set[Rule] = time("prune") {
+    val parRules = rules.par
+    lazy val groundTypes = groundTypesOf(parRules)
+    parRules.filter {
+      case app@Apply(_, arr, tgt) if groundTypes.contains(arr) && groundTypes.contains(tgt) => true
+      case Apply(_, _, _) => false
+      case _ => true
+    }.seq.toSet
   }
 }
 

@@ -18,7 +18,7 @@ package org.combinators.cls.interpreter
 
 import java.util.UUID
 
-import org.combinators.cls.inhabitation.{BoundedCombinatoryLogic, InhabitationAlgorithm, Tree, TreeGrammar, TreeGrammarEnumeration}
+import org.combinators.cls.inhabitation.{BoundedCombinatoryLogic, InhabitationAlgorithm, Tree, Rule, TreeGrammarEnumeration}
 import org.combinators.cls.types.{Type, _}
 import shapeless.feat
 
@@ -88,30 +88,27 @@ case class DynamicCombinatorInfo[A](name: String,
 
 /** Encapsulates an inhabitation result.
   *
-  * @param grammar a tree grammar representation of all inhabitants.
+  * @param rules a tree grammar rule representation of all inhabitants.
   * @param target the inhabitation request target type.
   * @param resultInterpreter an interpreter to turn inhabitants into scala objects.
   * @tparam T the native scala type of the requested inhabitants.
   */
-case class InhabitationResult[T](grammar: TreeGrammar, target: Type, resultInterpreter: Tree => T) {
+case class InhabitationResult[T](rules: Set[Rule], target: Type, resultInterpreter: Tree => T) {
+  /** The rules grouped by their target. */
+  lazy val groupedRules: Map[Type, Set[Rule]] = rules.groupBy(_.target)
   /** The (possibly infinite) enumeration of all inhabitants . */
-  val terms: feat.Enumeration[Tree] = TreeGrammarEnumeration(grammar, target)
+  val terms: feat.Enumeration[Tree] = TreeGrammarEnumeration(rules, target)
   /** The (possibly infinite) enumeration of all (lazyly) interpreted inhabitants . */
   val interpretedTerms: feat.Enumeration[T] = terms.map(resultInterpreter)
 
   /** Indicates if this result is empty. */
-  def isEmpty: Boolean = !grammar.contains(target)
+  def isEmpty: Boolean = rules.forall(_.target != target)
 
   /** Indicates if this result contains infinitely many inhabitants. */
   def isInfinite: Boolean = {
     def visit(seen: Set[Type], start: Type): Boolean = {
       if (seen.contains(start)) true
-      else {
-        grammar(start).exists {
-          case (_, types) =>
-            types.exists(ty => visit(seen + start, ty))
-        }
-      }
+      else groupedRules(start).exists(rule => visit(seen + start, rule.target))
     }
     !isEmpty && visit(Set.empty, target)
   }
@@ -313,7 +310,7 @@ trait ReflectedRepository[R] { self =>
 
   /** Maps all combinator names in this repository to their full (native Scala and semantic) intersection type. */
   lazy val combinators: Map[String, Type] =
-    combinatorComponents.mapValues(fullTypeOf)
+    combinatorComponents.mapValues(fullTypeOf).toMap
 
   /** A taxonomy representing the subtype relationship of all Scala types in this repository. */
   lazy val nativeTypeTaxonomy: NativeTaxonomyBuilder =
@@ -400,9 +397,9 @@ trait ReflectedRepository[R] { self =>
       Seq(targetTypes.init.foldRight(targetTypes.last) { case (ty, tgt) => Intersection(ty, tgt) })
     }
 
-    /** Interpretes the tree grammar returned by the algorithm as the computed `ResultType`, that is
+    /** Interpretes the tree grammar rules returned by the algorithm as the computed `ResultType`, that is
       * a combination of all requested native Scala types in this job. */
-    def toResult(resultGrammar: TreeGrammar): ResultType
+    def toResult(resultRules: Set[Rule]): ResultType
 
     /** Creates a new batch job, adding the request specified via `R` and `semanticTypes` to the requests in this job.
       * The result type is composed by creating a tuple of the current result type and the newly requested type `R`,
@@ -439,9 +436,9 @@ trait ReflectedRepository[R] { self =>
     abstract override def targets: Seq[Type] =
       super.targets ++ priorJob.targets
 
-    override def toResult(resultGrammar: TreeGrammar): ResultType = {
-      (priorJob.toResult(resultGrammar), // IntelliJ complains here for no reason, the code typechecks and compiles
-        InhabitationResult(resultGrammar, super.targets.head, evalInhabitant[RequestType]))
+    override def toResult(resultRules: Set[Rule]): ResultType = {
+      (priorJob.toResult(resultRules), // IntelliJ complains here for no reason, the code typechecks and compiles
+        InhabitationResult(resultRules, super.targets.head, evalInhabitant[RequestType]))
     }
   }
 
@@ -469,8 +466,8 @@ trait ReflectedRepository[R] { self =>
         type ResultType = InhabitationResult[R]
         val typeTag: universe.WeakTypeTag[R] = tag
         val semanticTypes: Seq[Type] = sts
-        override def toResult(resultGrammar: TreeGrammar): InhabitationResult[R] =
-          InhabitationResult(resultGrammar, super.targets.head, evalInhabitant[R])
+        override def toResult(resultRules: Set[Rule]): InhabitationResult[R] =
+          InhabitationResult(resultRules, super.targets.head, evalInhabitant[R])
       }
     }
   }
