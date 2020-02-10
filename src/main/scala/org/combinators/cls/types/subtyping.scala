@@ -145,13 +145,13 @@ case class SubtypeEnvironment(taxonomicSubtypesOf: Map[String, Set[String]]) {
     }.withDefault(x => Set(x))
 
   /** The reflexive transitive closure of the taxonomy passed in the constructor. */
-  lazy private val closedEnvironment: Map[String, Set[String]] =
-    reflexiveClosure(
-      Stream.iterate[(Boolean, Map[String, Set[String]])]((true, taxonomicSubtypesOf))(x => transitiveClosureStep(x._2))
-        .dropWhile(_._1)
-        .head
-        ._2)
-
+  lazy private val closedEnvironment: Map[String, Set[String]] = {
+    var updatedState = (true, taxonomicSubtypesOf)
+    while (updatedState._1) {
+      updatedState = transitiveClosureStep(updatedState._2)
+    }
+    reflexiveClosure(updatedState._2)
+  }
 
   /** Functional representation of the taxonomy under reflexive transitive closure. */
   lazy val transitiveReflexiveTaxonomicSubtypesOf: String => Set[String] = closedEnvironment.apply

@@ -64,7 +64,7 @@ case class Constructor(name: String, argument: Type = Omega) extends Type {
 
 /** Represents a product of two types. */
 case class Product(sigma: Type, tau: Type) extends Type {
-  def toStringPrec(prec: Int): String = {
+  final def toStringPrec(prec: Int): String = {
     val productPrec = 9
     def productShowAssoc(ty: Type) = ty match {
       case Product(_, _) => ty.toStringPrec(productPrec)
@@ -74,9 +74,9 @@ case class Product(sigma: Type, tau: Type) extends Type {
     if (prec > productPrec) parens(r) else r
   }
 
-  override val isOmega: Boolean = false
-  override val isClosed: Boolean = sigma.isClosed && tau.isClosed
-  override val size: Int = 1 + sigma.size + tau.size
+  override final val isOmega: Boolean = false
+  override final val isClosed: Boolean = sigma.isClosed && tau.isClosed
+  override final val size: Int = 1 + sigma.size + tau.size
 }
 
 /** Represents intersections between types.
@@ -84,7 +84,7 @@ case class Product(sigma: Type, tau: Type) extends Type {
   * when converted into strings.
   */
 case class Intersection(sigma: Type, tau: Type) extends Type {
-  def toStringPrec(prec: Int): String = {
+  final def toStringPrec(prec: Int): String = {
     val interPrec = 10
     def interShowAssoc(ty: Type) = ty match {
       case Intersection(_, _) => ty.toStringPrec(interPrec)
@@ -94,21 +94,21 @@ case class Intersection(sigma: Type, tau: Type) extends Type {
     if (prec > interPrec) parens(r) else r
   }
 
-  override val isOmega: Boolean = sigma.isOmega && tau.isOmega
-  override val isClosed: Boolean = sigma.isClosed && tau.isClosed
-  override val size: Int = 1 + sigma.size + tau.size
+  override final val isOmega: Boolean = sigma.isOmega && tau.isOmega
+  override final val isClosed: Boolean = sigma.isClosed && tau.isClosed
+  override final val size: Int = 1 + sigma.size + tau.size
 }
 
 /** The universal intersection type &omega;, which is a supertype of everything. */
 case object Omega extends Type with Organized {
-  def toStringPrec(prec: Int): String = "omega"
+  final def toStringPrec(prec: Int): String = "omega"
 
   /** Omega has no paths, so its organization is the empty intersection */
-  val paths: Stream[Type with Path] = Stream.empty
+  final val paths: List[Type with Path] = List.empty
 
-  override val isOmega: Boolean = true
-  override val isClosed: Boolean = true
-  override val size: Int = 1
+  override final val isOmega: Boolean = true
+  override final val isClosed: Boolean = true
+  override final val size: Int = 1
 }
 
 /** Represents arrows between types.
@@ -116,7 +116,7 @@ case object Omega extends Type with Organized {
   * when converted into strings.
   */
 case class Arrow(source: Type, target: Type) extends Type {
-  def toStringPrec(prec: Int): String = {
+  final def toStringPrec(prec: Int): String = {
     val arrowPrec = 8
     val r = target match {
       case Arrow(_, _) => s"${source.toStringPrec(arrowPrec + 1)} -> ${target.toStringPrec(arrowPrec)}"
@@ -125,18 +125,18 @@ case class Arrow(source: Type, target: Type) extends Type {
     if (prec > arrowPrec) parens(r) else r
   }
 
-  override val isOmega: Boolean = target.isOmega
-  override val isClosed: Boolean = source.isClosed && target.isClosed
-  override val size: Int = 1 + source.size + target.size
+  override final val isOmega: Boolean = target.isOmega
+  override final val isClosed: Boolean = source.isClosed && target.isClosed
+  override final val size: Int = 1 + source.size + target.size
 }
 
 /** Variables in intersection type schemes. */
 case class Variable(name: String) extends Type {
-  def toStringPrec(prec: Int): String = name
+  final def toStringPrec(prec: Int): String = name
 
-  override val isOmega: Boolean = false
-  override val isClosed: Boolean = false
-  override val size: Int = 1
+  override final val isOmega: Boolean = false
+  override final val isClosed: Boolean = false
+  override final val size: Int = 1
 }
 
 

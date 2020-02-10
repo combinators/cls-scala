@@ -52,16 +52,18 @@ sealed trait Kinding extends (Variable => Finite[Type]) with FiniteSubstitutionS
     * We have: `S in WF iff S(alpha) = sigma for sigma in Kinding(alpha)`.
     */
   lazy val allowedSubstitutions: Finite[Variable => Type] = {
-    lazy val varMappings: Stream[Finite[(Variable, Type)]] = underlyingMap.toStream.map {
+    lazy val varMappings: Iterator[Finite[(Variable, Type)]] = underlyingMap.iterator.map {
       case (v, e) => e.map(v -> _)
     }
     if (varMappings.isEmpty) Finite.empty
-    else
-      varMappings.tail.foldLeft[Finite[Map[Variable, Type]]](varMappings.headOption.getOrElse(Finite.empty).map(Map(_))) {
+    else {
+      val hd = varMappings.next()
+      varMappings.foldLeft[Finite[Map[Variable, Type]]](hd.map(Map(_))) {
         case (substs, e) => substs.:*:(e).map {
           case (vt: (Variable, Type), subst: Map[Variable,Type]) => subst + vt
         }
       }
+    }
   }
 
   /** Merges two kindings allowing the union of their substitutions.

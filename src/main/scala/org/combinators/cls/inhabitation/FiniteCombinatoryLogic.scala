@@ -33,7 +33,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     scala.collection.mutable.Map.empty[String, BigInt].withDefaultValue(0)*/
 
   private val splittedRepository: ParSeq[(String, Seq[Seq[MultiArrow]])] =
-    time("splitting combinator types")(repository.mapValues(splitTy).toSeq.par)
+    time("splitting combinator types")(repository.view.mapValues(splitTy).toSeq.par)
 
   private def time[R](location: String)(x: => R): R = {
     /*val before = System.currentTimeMillis()
