@@ -36,6 +36,9 @@ sealed trait Type {
 
   /** Returns whether this type contains no variables. */
   val isClosed: Boolean
+
+  /** Returns the size of the AST of this type. */
+  val size: Int
 }
 
 /** Standard operations on types. */
@@ -56,6 +59,7 @@ case class Constructor(name: String, argument: Type = Omega) extends Type {
 
   override val isOmega: Boolean = false
   override val isClosed: Boolean = argument.isClosed
+  override val size: Int = 1 + argument.size
 }
 
 /** Represents a product of two types. */
@@ -72,6 +76,7 @@ case class Product(sigma: Type, tau: Type) extends Type {
 
   override val isOmega: Boolean = false
   override val isClosed: Boolean = sigma.isClosed && tau.isClosed
+  override val size: Int = 1 + sigma.size + tau.size
 }
 
 /** Represents intersections between types.
@@ -91,6 +96,7 @@ case class Intersection(sigma: Type, tau: Type) extends Type {
 
   override val isOmega: Boolean = sigma.isOmega && tau.isOmega
   override val isClosed: Boolean = sigma.isClosed && tau.isClosed
+  override val size: Int = 1 + sigma.size + tau.size
 }
 
 /** The universal intersection type &omega;, which is a supertype of everything. */
@@ -102,6 +108,7 @@ case object Omega extends Type with Organized {
 
   override val isOmega: Boolean = true
   override val isClosed: Boolean = true
+  override val size: Int = 1
 }
 
 /** Represents arrows between types.
@@ -120,6 +127,7 @@ case class Arrow(source: Type, target: Type) extends Type {
 
   override val isOmega: Boolean = target.isOmega
   override val isClosed: Boolean = source.isClosed && target.isClosed
+  override val size: Int = 1 + source.size + target.size
 }
 
 /** Variables in intersection type schemes. */
@@ -128,6 +136,7 @@ case class Variable(name: String) extends Type {
 
   override val isOmega: Boolean = false
   override val isClosed: Boolean = false
+  override val size: Int = 1
 }
 
 

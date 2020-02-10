@@ -138,10 +138,15 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
       lesserArgVect._1.corresponds(greaterArgVect._1) {
         case (lesser, greater) => lesser.isSubtypeOf(greater)
       }
-    ms.foldLeft(Seq.empty[MultiArrow]) {
-      case (result, m) if result.exists(check(m, _)) => result
-      case (result, m) => m +: result.filterNot(check(_, m))
+    def averageArgumentTypeSize(m: MultiArrow): Int = {
+      if (m._1.size > 0) m._1.foldLeft(0){ case (x, y) => x + y.size } / m._1.size
+      else 0
     }
+    ms.sortBy(averageArgumentTypeSize) // heuristic 
+      .foldLeft(Seq.empty[MultiArrow]) {
+        case (result, m) if result.exists(check(m, _)) => result
+        case (result, m) => m +: result.filterNot(check(_, m))
+      }
   }
 
   private final def computeFailExisting(rules: Set[Rule], sigma: Type): (Boolean, Boolean) = {
