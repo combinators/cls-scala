@@ -57,7 +57,15 @@ lazy val root = (Project(id = "cls-scala", base = file(".")))
 	  case Some((2, n)) if n >= 13 => sourceDir / "scala-2.13+"
           case _                       => sourceDir / "scala-2.12-"
         }
+      },
+      unmanagedSourceDirectories in Test += {
+      	val sourceDir = (sourceDirectory in Test).value
+	CrossVersion.partialVersion(scalaVersion.value) match {
+	  case Some((2, n)) if n >= 13 => sourceDir / "scala-2.13+"
+          case _                       => sourceDir / "scala-2.12-"
+        }
       }
+
     )
 
 

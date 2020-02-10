@@ -18,7 +18,7 @@ package org.combinators.cls.interpreter
 
 import java.util.UUID
 
-import org.combinators.cls.inhabitation.{BoundedCombinatoryLogic, InhabitationAlgorithm, Tree, Rule, TreeGrammarEnumeration}
+import org.combinators.cls.inhabitation.{BoundedCombinatoryLogic, InhabitationAlgorithm, Tree, Rule, TreeGrammarEnumeration, Failed, Apply}
 import org.combinators.cls.types.{Type, _}
 import shapeless.feat
 
@@ -102,13 +102,16 @@ case class InhabitationResult[T](rules: Set[Rule], target: Type, resultInterpret
   val interpretedTerms: feat.Enumeration[T] = terms.map(resultInterpreter)
 
   /** Indicates if this result is empty. */
-  def isEmpty: Boolean = rules.forall(_.target != target)
+  def isEmpty: Boolean = rules.exists(_ == Failed(target)) || rules.forall(_.target != target)
 
   /** Indicates if this result contains infinitely many inhabitants. */
   def isInfinite: Boolean = {
     def visit(seen: Set[Type], start: Type): Boolean = {
       if (seen.contains(start)) true
-      else groupedRules(start).exists(rule => visit(seen + start, rule.target))
+      else groupedRules(start).exists {
+        case Apply(_, lhs, rhs) => visit(seen + start, lhs) || visit(seen + start, rhs)
+        case _ => false
+      }
     }
     !isEmpty && visit(Set.empty, target)
   }

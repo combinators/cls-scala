@@ -20,9 +20,14 @@ class LabyrinthTest extends FunSpec {
     arr(goal._1).update(goal._2, false)
     arr
   }
+  
+  def Pos(row: Type, column: Type): Type = Constructor("Pos", Product(row, column))
+  def Free(row: Type, column: Type): Type = Constructor("Free", Product(row, column))
+  def S(x: Type): Type = Constructor("S", x)
+  val Z: Type = Constructor("Z")
 
   def intToType(x: Int): Type =
-    (1 to x).foldLeft[Type]('Z)((n, _) => 'S(n))
+    (1 to x).foldLeft[Type](Z)((n, _) => S(n))
 
   def anyPos(v: Variable): Kinding =
     (0 until labyrinthSize).foldLeft(Kinding(v))((k, n) => k.addOption(intToType(n)))
@@ -30,24 +35,25 @@ class LabyrinthTest extends FunSpec {
   val positionColumn = Variable("posCol")
   val kinding = anyPos(positionRow).merge(anyPos(positionColumn))
 
+  
   val freeFields: Map[String, Type] =
     (0 until labyrinthSize).flatMap(row => (0 until labyrinthSize).collect {
-      case col if !blocked(row)(col) => s"Pos_at_($row, $col)" -> 'Free(intToType(row), intToType(col))
+      case col if !blocked(row)(col) => s"Pos_at_($row, $col)" -> Free(intToType(row), intToType(col))
      }).toMap
 
   val movements: Map[String, Type] =
     Map(
-      "start" -> 'Pos(intToType(start._1), intToType(start._2)),
-      "up" -> ('Pos(positionRow, 'S(positionColumn)) =>: 'Free(positionRow, positionColumn) =>: 'Pos(positionRow, positionColumn)),
-      "down" -> ('Pos(positionRow, positionColumn) =>: 'Free(positionRow, 'S(positionColumn)) =>: 'Pos(positionRow, 'S(positionColumn))),
-      "left" -> ('Pos('S(positionRow), positionColumn) =>: 'Free(positionRow, positionColumn) =>: 'Pos(positionRow, positionColumn)),
-      "right" -> ('Pos(positionRow, positionColumn) =>: 'Free('S(positionRow), positionColumn) =>: 'Pos('S(positionRow), positionColumn))
+      "start" -> Pos(intToType(start._1), intToType(start._2)),
+      "up" -> (Pos(positionRow, S(positionColumn)) =>: Free(positionRow, positionColumn) =>: Pos(positionRow, positionColumn)),
+      "down" -> (Pos(positionRow, positionColumn) =>: Free(positionRow, S(positionColumn)) =>: Pos(positionRow, S(positionColumn))),
+      "left" -> (Pos(S(positionRow), positionColumn) =>: Free(positionRow, positionColumn) =>: Pos(positionRow, positionColumn)),
+      "right" -> (Pos(positionRow, positionColumn) =>: Free(S(positionRow), positionColumn) =>: Pos(S(positionRow), positionColumn))
     )
 
 
   describe(s"Labyrinth: \n ${blocked.map(row => row.map(e => if (e) "x" else " ").mkString("|", "|", "|")).mkString("\n")}") {
     describe((movements ++ freeFields).mkString("{", "; \n", "}")) {
-      val tgt = 'Pos (intToType(goal._1), intToType(goal._2))
+      val tgt = Pos(intToType(goal._1), intToType(goal._2))
       describe(s"|- ? : $tgt") {
         lazy val Gamma = new BoundedCombinatoryLogic(kinding, SubtypeEnvironment(Map.empty), movements ++ freeFields)
         it("should finish constructing the repository") {
@@ -55,10 +61,10 @@ class LabyrinthTest extends FunSpec {
         }
         lazy val results = Gamma.inhabit(tgt)
         it("should finish inhabitation") {
-          assert(results.contains(tgt) || !results.contains(tgt))
+          assert(results.exists(_.target == tgt) || !results.exists(_.target == tgt))
         }
         lazy val enum = TreeGrammarEnumeration(results, tgt)
-        if (results.contains(tgt)) {
+        if (results.exists(_.target == tgt)) {
           it("should find some results if the grammar is non-empty") {
             assert(enum.index(0) != null)
           }

@@ -2,6 +2,8 @@ package org.combinators.cls.inhabitation
 
 import org.scalatest._
 import org.combinators.cls.types._
+import org.combinators.cls.inhabitation.{Failed, Combinator, Apply}
+import org.combinators.cls.TestCompat._
 
 class PruneTest extends FunSpec {
 
@@ -38,20 +40,19 @@ class PruneTest extends FunSpec {
       val tgt = Constructor("Goal")
       val results = Gamma.inhabit(tgt)
       it("should contain only f(x)") {
-        assert(results == Map(
-            Constructor("Goal") -> Set(("f", Seq(Constructor("Int")))),
-            Constructor("Int") -> Set(("x", Seq()))
-          ))
+        assert(results.forall(rule =>
+            (rule.target != Constructor("Goal") || 
+              rule == Apply(Constructor("Goal"), Arrow(Constructor("Int"), Constructor("Goal")), Constructor("Int"))) &&
+            (rule.target != Constructor("Int") ||
+              rule == Combinator(Constructor("Int"), "x"))
+            ))
       }
       it("should only unroll to Tree(f, Tree(x))") {
         assert(
           TreeGrammarEnumeration(results, tgt).values ==
-            (BigInt(0), Stream.empty[Tree]) #::
-              (BigInt(0), Stream.empty[Tree]) #::
-              (BigInt(0), Stream.empty[Tree]) #::
-              (BigInt(1), Tree("f", Constructor("Goal"), Tree("x", Constructor("Int"))) #:: Stream.empty[Tree]) #::
-              (BigInt(0), Stream.empty[Tree]) #::
-              Stream.empty[(BigInt, Stream[Tree])]
+            (BigInt(0), LazyList.empty[Tree]) #::
+              (BigInt(1), Tree("f", Constructor("Goal"), Tree("x", Constructor("Int"))) #:: LazyList.empty[Tree]) #::
+              LazyList.empty[(BigInt, LazyList[Tree])]
         )
       }
     }
@@ -59,7 +60,7 @@ class PruneTest extends FunSpec {
       val tgt = Constructor("Garbage1")
       val results = Gamma.inhabit(tgt)
       it("should be empty") {
-        assert(results.isEmpty)
+        assert(results.forall(rule => rule.target != tgt || rule == Failed(tgt)))
       }
       it("should unroll to an empty enumeration") {
         assert(TreeGrammarEnumeration(results, tgt).values.isEmpty)

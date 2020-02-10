@@ -35,19 +35,24 @@ class EarlyAbortReschedulingTest extends FunSpec {
       val tgt1 = Constructor("PoisonOk")
       val tgt2 = Constructor("Done")
       val results = Gamma.inhabit(tgt1, tgt2)
-      val expectedResults: TreeGrammar =
-        Map(
-          Constructor("PoisonOk") -> Set(("mkPoisonOk", Seq.empty)),
-          Constructor("Always") -> Set(("mkAlways", Seq.empty)),
-          Constructor("AlsoOk") -> Set(("mkAlsoOk", Seq.empty)),
-          Constructor("Ok") -> Set(
-            ("mkOk", Seq(Constructor("Always"))),
-            ("mkOkOk", Seq(Constructor("Ok")))
-          ),
-          Constructor("Done") -> Set(("mkDone", Seq(Constructor("Ok"), Constructor("AlsoOk"))))
+      val expectedResults: Set[Rule] =
+        Set[Rule](
+          Combinator(Constructor("PoisonOk"), "mkPoisonOk"),
+          Combinator(Constructor("Always"), "mkAlways"),
+          Combinator(Constructor("AlsoOk"), "mkAlsoOk"),
+          Apply(Constructor("Ok"), Arrow(Constructor("Always"), Constructor("Ok")), Constructor("Always")),
+          Apply(Constructor("Ok"), Arrow(Constructor("Ok"), Constructor("Ok")), Constructor("Ok")),
+          Combinator(Arrow(Constructor("Always"), Constructor("Ok")), "mkOk"),
+          Combinator(Arrow(Constructor("Ok"), Constructor("Ok")), "mkOkOk"),
+          Apply(Constructor("Done"), Arrow(Constructor("AlsoOk"), Constructor("Done")), Constructor("AlsoOk")),
+          Apply(Arrow(Constructor("AlsoOk"), Constructor("Done")), Arrow(Constructor("Ok"), Arrow(Constructor("AlsoOk"), Constructor("Done"))), Constructor("Ok")),
+          Combinator(Arrow(Constructor("Ok"), Arrow(Constructor("AlsoOk"), Constructor("Done"))), "mkDone"),
+          Failed(Constructor("Fail")),
+          Combinator(Arrow(Constructor("Ok"), Arrow(Constructor("Fail"), Constructor("PoisonOk"))), "mkFail"),
+          Apply(Arrow(Constructor("Fail"), Constructor("PoisonOk")), Arrow(Constructor("Ok"), Arrow(Constructor("Fail"), Constructor("PoisonOk"))), Constructor("Ok"))
         )
-
-      it(s"should exactly produce ${prettyPrintTreeGrammar(expectedResults)}") {
+            
+      it(s"should exactly produce ${prettyPrintRuleSet(expectedResults)}") {
         assert(results == expectedResults)
       }
     }

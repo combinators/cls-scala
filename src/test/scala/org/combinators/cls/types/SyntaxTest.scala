@@ -64,27 +64,33 @@ class SyntaxTest extends FunSpec {
     }
   }
   describe("Constructor notations") {
+    val asym = Symbol("a")
+    val bsym = Symbol("b")
+    val csym = Symbol("c")
+    val dsym = Symbol("d")
+    val xsym = Symbol("x")
+
     it("should work unapplied") {
-      val aTest: Type = 'a
-      assert('a.argument == Omega)
+      val aTest: Type = asym
+      assert(asym.argument == Omega)
       assert(aTest == a)
     }
     it("should work with arguments") {
-      assert('a('b, 'c) == Constructor("a", Product(Constructor("b"), Constructor("c"))))
-      assert('a('b, 'c, 'd) == Constructor("a", Product(Product(Constructor("b"), Constructor("c")), Constructor("d"))))
+      assert(asym(bsym, csym) == Constructor("a", Product(Constructor("b"), Constructor("c"))))
+      assert(asym(bsym, csym, dsym) == Constructor("a", Product(Product(Constructor("b"), Constructor("c")), Constructor("d"))))
     }
     it("should work combined with arrows") {
-      assert(('a =>: 'b) == Arrow(a, b))
-      assert(('a('b) =>: 'c) == Arrow(Constructor("a", b), c))
-      assert(('a =>: 'b('a, 'c)) == Arrow(a, Constructor("b", Product(a, c))))
+      assert((asym =>: bsym) == Arrow(a, b))
+      assert((asym(bsym) =>: csym) == Arrow(Constructor("a", b), c))
+      assert((asym =>: bsym(asym, csym)) == Arrow(a, Constructor("b", Product(a, c))))
     }
     it("should work combined with intersections") {
-      assert('a :&: 'b == Intersection(a, b))
-      assert('a('b) :&: 'c == Intersection(Constructor("a", b), c))
-      assert('a :&: 'b('a, 'c) == Intersection(a, Constructor("b", Product(a, c))))
+      assert(asym :&: bsym == Intersection(a, b))
+      assert(asym(bsym) :&: csym == Intersection(Constructor("a", b), c))
+      assert(asym :&: bsym(asym, csym) == Intersection(a, Constructor("b", Product(a, c))))
     }
     it("should pretty print almost identically") {
-      assert(('a('b, Omega) :&: 'x).toString == "a(b * omega) & x")
+      assert((asym(bsym, Omega) :&: xsym).toString == "a(b * omega) & x")
     }
   }
 }

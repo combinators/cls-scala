@@ -30,20 +30,15 @@ class FCLTest extends FunSpec {
       import Gamma.subtypes._
       val tgt = Constructor("Int")
       val results = Gamma.inhabit(tgt)
-      it("should not return an map") {
+      it("should not be empty") {
         assert(results.nonEmpty)
       }
       it("should contain Zero()") {
-        assert(results(tgt).contains(("Zero", Seq.empty)))
+        assert(results.filter(_.target == tgt).contains(Combinator(tgt, "Zero")))
       }
       it("should contain Succ(Int & Even)") {
-        assert(results(tgt).exists {
-            case (c, args) =>
-                c == "Succ" &&
-                    args.corresponds(Seq[Type](Intersection(tgt, Constructor("Even"))))(
-                        (arg1, arg2) => arg1.isSubtypeOf(arg2) && arg1.isSupertypeOf(arg1)
-                )
-          })
+        assert(results.contains(Apply(tgt, Arrow(Intersection(tgt, Constructor("Even")), tgt), Intersection(tgt, Constructor("Even")))))
+        assert(results.contains(Combinator(Arrow(Intersection(tgt, Constructor("Even")), tgt), "Succ")))
       }
       it("should unroll to Tree(Zero) at index 0") {
         assert(
@@ -52,7 +47,7 @@ class FCLTest extends FunSpec {
               Tree("Zero", Constructor("Int")))
         )
       }
-      it("should unroll to Tree(Succ, Tree(Succ, Tree(Succ, Tree(Zero)))) at index 4") {
+      it("should unroll to Tree(Succ, Tree(Succ, Tree(Succ, Tree(Succ, Tree(Zero))))) at index 4") {
         assert(
           TreeGrammarEnumeration(results, Constructor("Int")).index(4)
             .equalsWithSubtypeEqualityIn(
@@ -66,7 +61,7 @@ class FCLTest extends FunSpec {
       val tgt = Constructor("List", Constructor("Int"))
       val results = Gamma.inhabit(tgt)
       it("should be empty") {
-        assert(results.isEmpty)
+        assert(results.forall(rule => rule.target != tgt || rule == org.combinators.cls.inhabitation.Failed(tgt)))
       }
     }
 
@@ -76,7 +71,23 @@ class FCLTest extends FunSpec {
       val results = Gamma.inhabit(tgt)
       val results2 = Gamma.inhabit(tgt2)
       it("should equal the results for Int plus an entry for Char") {
-        assert(results2 - tgt2 + (tgt -> results2(tgt2)) == results)
+        def targetsChar(t: Type): Boolean = 
+          t match {
+            case Arrow(_, t) =>  targetsChar(t)
+            case x => x == tgt
+          }
+        def replaceArrowTarget(arr: Type): Type = 
+          arr match {
+            case Arrow(src, target) => Arrow(src, replaceArrowTarget(target))
+            case x => tgt2
+          }
+        assert(
+          results.map {
+            case org.combinators.cls.inhabitation.Failed(target) if targetsChar(target) => org.combinators.cls.inhabitation.Failed(replaceArrowTarget(target))
+            case Combinator(target, c) if targetsChar(target) => Combinator(replaceArrowTarget(target), c)
+            case Apply(target, fun, arg) if targetsChar(target) => Apply(replaceArrowTarget(target), replaceArrowTarget(fun), arg)
+            case x => x
+          } == results2)
       }
     }
 

@@ -299,9 +299,10 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     val parRules = rules.par
     lazy val groundTypes = groundTypesOf(parRules)
     parRules.filter {
-      case app@Apply(_, arr, tgt) if groundTypes.contains(arr) && groundTypes.contains(tgt) => true
-      case Apply(_, _, _) => false
-      case _ => true
+      case Combinator(_, _) => true
+      case Apply(_, arr, tgt) if groundTypes.contains(arr) && groundTypes.contains(tgt) => true
+      case Failed(_) => true
+      case _ => false
     }.seq.toSet
   }
 }
