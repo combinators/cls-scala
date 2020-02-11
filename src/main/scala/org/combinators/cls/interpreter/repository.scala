@@ -313,7 +313,7 @@ trait ReflectedRepository[R] { self =>
 
   /** Maps all combinator names in this repository to their full (native Scala and semantic) intersection type. */
   lazy val combinators: Map[String, Type] =
-    combinatorComponents.mapValues(fullTypeOf).toMap
+    combinatorComponents.transform((_, ty) => fullTypeOf(ty)).toMap
 
   /** A taxonomy representing the subtype relationship of all Scala types in this repository. */
   lazy val nativeTypeTaxonomy: NativeTaxonomyBuilder =

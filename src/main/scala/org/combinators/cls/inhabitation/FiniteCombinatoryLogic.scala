@@ -33,7 +33,7 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
     scala.collection.mutable.Map.empty[String, BigInt].withDefaultValue(0)*/
 
   private val splittedRepository: ParSeq[(String, Seq[Seq[MultiArrow]])] =
-    time("splitting combinator types")(repository.view.mapValues(splitTy).toSeq.par)
+    time("splitting combinator types")(repository.transform((_, ty) => splitTy(ty)).toSeq.par)
 
   private def time[R](location: String)(x: => R): R = {
     /*val before = System.currentTimeMillis()
@@ -298,12 +298,13 @@ class FiniteCombinatoryLogic(val subtypes: SubtypeEnvironment, val repository: R
   def prune(rules: Set[Rule]): Set[Rule] = time("prune") {
     val parRules = rules.par
     lazy val groundTypes = groundTypesOf(parRules)
-    parRules.filter {
-      case Combinator(_, _) => true
-      case Apply(_, arr, tgt) if groundTypes.contains(arr) && groundTypes.contains(tgt) => true
-      case Failed(_) => true
-      case _ => false
-    }.seq.toSet
+    def keepGround: PartialFunction[Rule, Rule] = {
+      case Apply(tgt, _, _) if !groundTypes.contains(tgt) => Failed(tgt)
+      case app@Apply(_, arr, tgt) if groundTypes.contains(arr) && groundTypes.contains(tgt) => app
+      case c@Combinator(_, _) => c
+      case f@Failed(_) => f
+    }
+    parRules.collect(keepGround).seq.toSet
   }
 }
 

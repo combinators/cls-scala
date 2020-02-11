@@ -50,11 +50,11 @@ class BoundedCombinatoryLogic(substitutionSpace: FiniteSubstitutionSpace, subtyp
   /** Applies all substitutions to every combinator type in `Gamma`. */
   private def blowUp(Gamma: => Repository): Repository = {
     if (substitutions.values.isEmpty) Gamma else {
-      Gamma.view.mapValues(ty =>
+      Gamma.transform((_, ty) =>
         if (ty.isClosed) ty
         else  substitutions.values.tail.foldLeft(applySubst(substitutions.values.head)(ty)) {
             case (res, s) => Intersection(applySubst(s)(ty), res)
-          }).toMap
+          })
     }
   }
 
