@@ -47,14 +47,54 @@ class BoundedCombinatoryLogic(substitutionSpace: FiniteSubstitutionSpace, subtyp
     subst(sigma)
   }
 
+  /** Returns a set of all variables occuring in type `sigma`. */
+  private def variablesInType(sigma: Type): Set[Variable] = {
+    sigma match {
+      case Omega => Set.empty
+      case Constructor(c, argument) => variablesInType(argument)
+      case Arrow(src, tgt) => variablesInType(src).union(variablesInType(tgt))
+      case Intersection(sigma, tau) => variablesInType(sigma).union(variablesInType(tau))
+      case Product(tau, rho) => variablesInType(tau).union(variablesInType(rho))
+      case v@Variable(_) => Set(v)
+    }
+  }
+
+  /** Computes a table of all valid substitutions of variables in `sigma`.
+    * This avoids applying unneccessary duplicate substitutions to types, e.g.:
+    * Gamma = { c: alpha -> x }
+    * substitutions = {
+    *   { alpha -> a, beta -> b },
+    *   { alpha -> a, beta -> c },
+    *   { alpha -> b, beta -> d }
+    * }
+    * Would result in
+    * Gamma' = { c: (a -> x) & (a -> x) & (b -> x) }
+    * without this function.
+    * The generated substitution table is restricted in its domain:
+    * substitutionTable(alpha -> x) = {
+    *   { alpha -> a, alpha -> b}
+    * }
+    * which avoids the duplicate (a -> x) type in Gamma'.
+    */
+  private def substitutionTable(sigma: Type): Set[Map[Variable, Type]] = {
+    val domain = variablesInType(sigma)
+    substitutions.values.foldLeft(Set.empty[Map[Variable, Type]]) {
+      case (res, s) => res + (domain.map(v => (v, s(v))).toMap)
+    }
+  }
+
+
   /** Applies all substitutions to every combinator type in `Gamma`. */
   private def blowUp(Gamma: => Repository): Repository = {
     if (substitutions.values.isEmpty) Gamma else {
       Gamma.transform((_, ty) =>
         if (ty.isClosed) ty
-        else  substitutions.values.tail.foldLeft(applySubst(substitutions.values.head)(ty)) {
+        else {
+          val table = substitutionTable(ty)
+          table.tail.foldLeft(applySubst(table.head)(ty)) {
             case (res, s) => Intersection(applySubst(s)(ty), res)
-          })
+          }
+        })
     }
   }
 

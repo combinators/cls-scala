@@ -37,7 +37,7 @@ lazy val root = (Project(id = "cls-scala", base = file(".")))
     .settings(
       moduleName := "cls-scala",
       libraryDependencies ++= Seq(
-        "org.combinators" %% "shapeless-feat" % "0.2.1+42-61e38852",
+        "org.combinators" %% "shapeless-feat" % "0.2.4.1",
         "org.scala-lang" % "scala-compiler" % scalaVersion.value,
         "org.scalactic" %% "scalactic" % "3.1.0" % "test",
         "org.scalatest" %% "scalatest" % "3.1.0" % "test",
