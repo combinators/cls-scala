@@ -1,3 +1,12 @@
+### Version 2.2.0
+This version replaces the algorithms by the version published in [A Type-Theoretic Framework for Software Component Synthesis](http://dx.doi.org/10.17877/DE290R-20320).
+- Constructors are now unary with products for arity > 1
+- Domain restrictions on substitution spaces allow to avoid duplication in types
+- The algorithm is based on relational semantics of multiple specialized machine models
+- Results are now real regular tree grammars without arity violations
+- A long standing bug concerning the inhabitation of type omega is fixed
+- Several dependencies have been updated
+- Compatibility with Scala 2.13 is added
 ### Version 2.1.0
 This version contains minor patches.
 - Method `removeEntriesWithArgument` is now non-final to allow logging in a debugger
