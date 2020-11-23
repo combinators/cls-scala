@@ -60,7 +60,7 @@ class SyntaxTest extends AnyFunSpec {
     }
     it("should pretty print almost identically") {
       assert(
-        ((a :&: b) :&: c :&: (a :&: c =>: b) :&: (a =>: c:&: b) :&: (a :&: b <*> c) :&: (a <*> b :&: c)).toString ==
+        ((a :&: b) :&: c :&: (a :&: c =>: b) :&: (a =>: c :&: b) :&: (a :&: b <*> c) :&: (a <*> b :&: c)).toString ==
           "a & b & c & (a & c -> b) & (a -> c & b) & (a & b * c) & (a * b & c)"
       )
     }
@@ -92,18 +92,35 @@ class SyntaxTest extends AnyFunSpec {
       assert(aTest == a)
     }
     it("should work with arguments") {
-      assert(asym(bsym, csym) == Constructor("a", Product(Constructor("b"), Constructor("c"))))
-      assert(asym(bsym, csym, dsym) == Constructor("a", Product(Product(Constructor("b"), Constructor("c")), Constructor("d"))))
+      assert(
+        asym(bsym, csym) == Constructor(
+          "a",
+          Product(Constructor("b"), Constructor("c"))
+        )
+      )
+      assert(
+        asym(bsym, csym, dsym) == Constructor(
+          "a",
+          Product(Product(Constructor("b"), Constructor("c")), Constructor("d"))
+        )
+      )
     }
     it("should work combined with arrows") {
       assert((asym =>: bsym) == Arrow(a, b))
       assert((asym(bsym) =>: csym) == Arrow(Constructor("a", b), c))
-      assert((asym =>: bsym(asym, csym)) == Arrow(a, Constructor("b", Product(a, c))))
+      assert(
+        (asym =>: bsym(asym, csym)) == Arrow(a, Constructor("b", Product(a, c)))
+      )
     }
     it("should work combined with intersections") {
       assert(asym :&: bsym == Intersection(a, b))
       assert(asym(bsym) :&: csym == Intersection(Constructor("a", b), c))
-      assert(asym :&: bsym(asym, csym) == Intersection(a, Constructor("b", Product(a, c))))
+      assert(
+        asym :&: bsym(asym, csym) == Intersection(
+          a,
+          Constructor("b", Product(a, c))
+        )
+      )
     }
     it("should pretty print almost identically") {
       assert((asym(bsym, Omega) :&: xsym).toString == "a(b * omega) & x")

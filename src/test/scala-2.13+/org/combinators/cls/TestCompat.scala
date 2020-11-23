@@ -16,6 +16,4 @@
 
 package org.combinators.cls
 
-object TestCompat {
-  
-}
+object TestCompat {}

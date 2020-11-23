@@ -18,7 +18,15 @@ package org.combinators.cls.interpreter
 
 import java.util.UUID
 
-import org.combinators.cls.inhabitation.{BoundedCombinatoryLogic, InhabitationAlgorithm, Tree, Rule, TreeGrammarEnumeration, Failed, Apply}
+import org.combinators.cls.inhabitation.{
+  Apply,
+  BoundedCombinatoryLogic,
+  Failed,
+  InhabitationAlgorithm,
+  Rule,
+  Tree,
+  TreeGrammarEnumeration
+}
 import org.combinators.cls.types.{Type, _}
 import shapeless.feat
 
@@ -35,16 +43,21 @@ class combinator extends StaticAnnotation
   * back into call of their apply methods.
   */
 sealed trait CombinatorInfo {
+
   /** The name of the combinator */
   val name: String
+
   /** The parameter types of the combinator's apply method.
     * None, for def `apply: A` and Some(Seq()) for `apply(): A`.
     */
   val parameters: Option[Seq[universe.Type]]
+
   /** The result type of the combinator's apply method. */
   val result: universe.Type
+
   /** The optional semantic type annotation (given in the field `semanticType: Type`). */
   val semanticType: Option[Type]
+
   /** Computes if two combinator information objects are equal up to Scala type equality of their parameters and results.
     * This is necessary if the same combinator is looked at form different scopes, where in one scope reflection
     * information contains fully qualified packages, while in the other it doesn't.
@@ -60,15 +73,18 @@ sealed trait CombinatorInfo {
       })
 
 }
+
 /** Combinator information collected for a compile time static singleton object.
   *
   * @param fullSignature the full type signature of the reflected object (for debugging information).
   */
-case class StaticCombinatorInfo(name: String,
-  parameters: Option[Seq[universe.Type]],
-  result: universe.Type,
-  semanticType: Option[Type],
-  fullSignature: universe.Type) extends CombinatorInfo
+case class StaticCombinatorInfo(
+    name: String,
+    parameters: Option[Seq[universe.Type]],
+    result: universe.Type,
+    semanticType: Option[Type],
+    fullSignature: universe.Type
+) extends CombinatorInfo
 
 /** Combinator information for a runtime generated object.
   *
@@ -77,14 +93,16 @@ case class StaticCombinatorInfo(name: String,
   * @param position a stack trace, indicating where the object was added to the repository.
   * @param uniqueNameTag a unique name tag, which will be part of the name of the resulting combinator.
   */
-case class DynamicCombinatorInfo[A](name: String,
-  parameters: Option[Seq[universe.Type]],
-  result: universe.Type,
-  semanticType: Option[Type],
-  instance: A,
-  combinatorTypeTag: WeakTypeTag[A],
-  position: Array[StackTraceElement],
-  uniqueNameTag: String = UUID.randomUUID().toString) extends CombinatorInfo
+case class DynamicCombinatorInfo[A](
+    name: String,
+    parameters: Option[Seq[universe.Type]],
+    result: universe.Type,
+    semanticType: Option[Type],
+    instance: A,
+    combinatorTypeTag: WeakTypeTag[A],
+    position: Array[StackTraceElement],
+    uniqueNameTag: String = UUID.randomUUID().toString
+) extends CombinatorInfo
 
 /** Encapsulates an inhabitation result.
   *
@@ -93,25 +111,35 @@ case class DynamicCombinatorInfo[A](name: String,
   * @param resultInterpreter an interpreter to turn inhabitants into scala objects.
   * @tparam T the native scala type of the requested inhabitants.
   */
-case class InhabitationResult[T](rules: Set[Rule], target: Type, resultInterpreter: Tree => T) {
+case class InhabitationResult[T](
+    rules: Set[Rule],
+    target: Type,
+    resultInterpreter: Tree => T
+) {
+
   /** The rules grouped by their target. */
   lazy val groupedRules: Map[Type, Set[Rule]] = rules.groupBy(_.target)
+
   /** The (possibly infinite) enumeration of all inhabitants . */
   val terms: feat.Enumeration[Tree] = TreeGrammarEnumeration(rules, target)
+
   /** The (possibly infinite) enumeration of all (lazyly) interpreted inhabitants . */
   val interpretedTerms: feat.Enumeration[T] = terms.map(resultInterpreter)
 
   /** Indicates if this result is empty. */
-  def isEmpty: Boolean = rules.exists(_ == Failed(target)) || rules.forall(_.target != target)
+  def isEmpty: Boolean =
+    rules.exists(_ == Failed(target)) || rules.forall(_.target != target)
 
   /** Indicates if this result contains infinitely many inhabitants. */
   def isInfinite: Boolean = {
     def visit(seen: Set[Type], start: Type): Boolean = {
       if (seen.contains(start)) true
-      else groupedRules(start).exists {
-        case Apply(_, lhs, rhs) => visit(seen + start, lhs) || visit(seen + start, rhs)
-        case _ => false
-      }
+      else
+        groupedRules(start).exists {
+          case Apply(_, lhs, rhs) =>
+            visit(seen + start, lhs) || visit(seen + start, rhs)
+          case _ => false
+        }
     }
     !isEmpty && visit(Set.empty, target)
   }
@@ -120,7 +148,7 @@ case class InhabitationResult[T](rules: Set[Rule], target: Type, resultInterpret
   def size: Option[BigInt] = {
     Option(!isInfinite).collect {
       case true if isEmpty => 0
-      case true => terms.values.foldLeft(0){case (s, (_, xs)) => s + xs.size }
+      case true            => terms.values.foldLeft(0) { case (s, (_, xs)) => s + xs.size }
     }
   }
 }
@@ -138,19 +166,25 @@ trait ReflectedRepository[R] { self =>
 
   /** Reflection information for the Scala repository. */
   val typeTag: WeakTypeTag[R]
+
   /** Instance of the Scala repository. */
   val instance: R
+
   /** Taxonomy for semantic type information. */
   val semanticTaxonomy: Taxonomy
+
   /** Finite restriction on well-formed substitutions. */
   val substitutionSpace: FiniteSubstitutionSpace
+
   /** The algorithm to use. */
   val algorithm: InhabitationAlgorithm
+
   /** The class loader used for interpreting inhabitation results. */
   val classLoader: ClassLoader
 
   /** The compiler toolbox used to runtime compile interpreted results. */
-  protected def tb: ToolBox[universe.type] = universe.runtimeMirror(classLoader).mkToolBox()
+  protected def tb: ToolBox[universe.type] =
+    universe.runtimeMirror(classLoader).mkToolBox()
 
   /** Performs reflection to find all objects in the Scala repository, which are annotated by [[combinator]].
     * Overload this to add additional combinators.
@@ -158,19 +192,28 @@ trait ReflectedRepository[R] { self =>
     * @return A map from combinator names to their reflected information.
     */
   protected def findCombinatorComponents: Map[String, CombinatorInfo] = {
-    typeTag.tpe.members.flatMap (member =>
+    typeTag.tpe.members
+      .flatMap(member =>
         member.annotations.foldLeft[Seq[CombinatorInfo]](Seq()) {
           case (Seq(), c) if c.tree.tpe =:= universe.typeOf[combinator] =>
-            Seq(staticCombinatorInfoFor(member.name.toString, member.typeSignature))
+            Seq(
+              staticCombinatorInfoFor(
+                member.name.toString,
+                member.typeSignature
+              )
+            )
           case (s, _) => s
         }
-    ).map(cInfo => cInfo.name -> cInfo).toMap
+      )
+      .map(cInfo => cInfo.name -> cInfo)
+      .toMap
   }
 
   /** A map from combinator names to reflected combinator information.
     * Obtained by findCombinatorComponents.
     */
-  lazy val combinatorComponents: Map[String, CombinatorInfo] = findCombinatorComponents
+  lazy val combinatorComponents: Map[String, CombinatorInfo] =
+    findCombinatorComponents
 
   /** Extracts the type information of an apply method inside of the type described by `typeSignature`.
     * The apply method must be unique, declared via def, and cannot have type parameters.
@@ -178,27 +221,35 @@ trait ReflectedRepository[R] { self =>
     * @return a pair of the parameter types and the result type, where the first component is None if there are no
     *         parameters (`def apply: A`), or Some(Seq.empty), if there are empty parameters (`def apply(): A`).
     */
-  def applyMethodInfoFor(combinatorName: String, typeSignature: universe.Type): (Option[Seq[universe.Type]], universe.Type) = {
+  def applyMethodInfoFor(
+      combinatorName: String,
+      typeSignature: universe.Type
+  ): (Option[Seq[universe.Type]], universe.Type) = {
     val applyMember = typeSignature.member(TermName("apply"))
     if (!applyMember.isMethod)
-      throw new RuntimeException(s"$combinatorName: Combinators need to have an apply method")
+      throw new RuntimeException(
+        s"$combinatorName: Combinators need to have an apply method"
+      )
     val applyMethod = applyMember.asMethod
     if (applyMethod.typeParams.nonEmpty)
-      throw new RuntimeException(s"$combinatorName: Combinator methods cannot have type parameters")
+      throw new RuntimeException(
+        s"$combinatorName: Combinator methods cannot have type parameters"
+      )
     applyMethod.typeSignatureIn(typeSignature) match {
-        case NullaryMethodType(result) => (None, result.dealias)
-        case MethodType(params, result) =>
-          val paramTys =
-            Some(params.map(p => {
-              val byName = definitions.ByNameParamClass
-              val paramTy = p.info match {
-                case TypeRef(_, sym, pTy :: Nil) if sym == byName => pTy // lazyness => T
-                case pTy => pTy
-              }
-              paramTy.dealias
-            }))
-          (paramTys, result.dealias)
-      }
+      case NullaryMethodType(result) => (None, result.dealias)
+      case MethodType(params, result) =>
+        val paramTys =
+          Some(params.map(p => {
+            val byName = definitions.ByNameParamClass
+            val paramTy = p.info match {
+              case TypeRef(_, sym, pTy :: Nil) if sym == byName =>
+                pTy // lazyness => T
+              case pTy => pTy
+            }
+            paramTy.dealias
+          }))
+        (paramTys, result.dealias)
+    }
   }
 
   /** Obtains the [[StaticCombinatorInfo]] for a single [[combinator]]-annotated object inside of the repository.
@@ -211,17 +262,20 @@ trait ReflectedRepository[R] { self =>
     * @param typeSignature reflected type information of the combinator object.
     * @return the [[StaticCombinatorInfo]] for `typeSignature`.
     */
-  def staticCombinatorInfoFor(combinatorName: String, typeSignature: universe.Type): StaticCombinatorInfo =
+  def staticCombinatorInfoFor(
+      combinatorName: String,
+      typeSignature: universe.Type
+  ): StaticCombinatorInfo =
     ReflectedRepository.synchronized {
-      val (applyMethodParameters, applyMethodResult) = applyMethodInfoFor(combinatorName, typeSignature)
+      val (applyMethodParameters, applyMethodResult) =
+        applyMethodInfoFor(combinatorName, typeSignature)
       val tb = this.tb
       val semanticType =
-        typeSignature
-          .members
+        typeSignature.members
           .collectFirst {
             case m if m.name.toString == "semanticType" =>
               tb.eval(
-                q"""import org.combinators.cls.types.Type;
+                  q"""import org.combinators.cls.types.Type;
                     import org.combinators.ls14.cls.types.syntax._;
                     identity[Type]({
                       ${reify(instance).in(tb.mirror)}
@@ -229,9 +283,16 @@ trait ReflectedRepository[R] { self =>
                         .${TermName(NameTransformer.encode(combinatorName))}
                         .semanticType
                       })"""
-              ).asInstanceOf[Type]
+                )
+                .asInstanceOf[Type]
           }
-      StaticCombinatorInfo(combinatorName, applyMethodParameters, applyMethodResult, semanticType, typeSignature.dealias)
+      StaticCombinatorInfo(
+        combinatorName,
+        applyMethodParameters,
+        applyMethodResult,
+        semanticType,
+        typeSignature.dealias
+      )
     }
 
   /** Obtains the [[DynamicCombinatorInfo]] for a single object programmatically added to the repository.
@@ -246,30 +307,35 @@ trait ReflectedRepository[R] { self =>
     * @param position a stack trace of the code position where the combinator is added -- required for debugging.
     * @return the [[DynamicCombinatorInfo]] for `combinatorInstance`.
     */
-  def dynamicCombinatorInfoFor[C](combinatorName: String, combinatorInstance: C, position: Array[StackTraceElement])
-    (implicit combinatorTypeTag: WeakTypeTag[C]): DynamicCombinatorInfo[C] =
+  def dynamicCombinatorInfoFor[C](
+      combinatorName: String,
+      combinatorInstance: C,
+      position: Array[StackTraceElement]
+  )(implicit combinatorTypeTag: WeakTypeTag[C]): DynamicCombinatorInfo[C] =
     ReflectedRepository.synchronized {
-      val (applyMethodParameters, applyMethodResult) = applyMethodInfoFor(combinatorName, combinatorTypeTag.tpe)
+      val (applyMethodParameters, applyMethodResult) =
+        applyMethodInfoFor(combinatorName, combinatorTypeTag.tpe)
       val tb = this.tb
       val semanticType =
-        combinatorTypeTag
-          .tpe
-          .members
+        combinatorTypeTag.tpe.members
           .collectFirst {
             case m if m.name.toString == "semanticType" =>
               tb.eval(
-                q"""${reify(combinatorInstance).in(tb.mirror)}
+                  q"""${reify(combinatorInstance).in(tb.mirror)}
                       .asInstanceOf[${combinatorTypeTag.in(tb.mirror).tpe}]
                       .semanticType"""
-              ).asInstanceOf[Type]
+                )
+                .asInstanceOf[Type]
           }
-      DynamicCombinatorInfo(combinatorName,
+      DynamicCombinatorInfo(
+        combinatorName,
         applyMethodParameters,
         applyMethodResult,
         semanticType,
         combinatorInstance,
         combinatorTypeTag,
-        position)
+        position
+      )
     }
 
   /** Build a new reflected repository, which additionaly includes `combinator`.
@@ -283,9 +349,10 @@ trait ReflectedRepository[R] { self =>
     * @tparam C the type of the combinator object to add.
     * @return a new reflected repository augmented by `combinator`.
     */
-  def addCombinator[C](combinator: C,
-    position: Array[StackTraceElement] = Thread.currentThread().getStackTrace)
-    (implicit combinatorTag: WeakTypeTag[C]): ReflectedRepository[R] = {
+  def addCombinator[C](
+      combinator: C,
+      position: Array[StackTraceElement] = Thread.currentThread().getStackTrace
+  )(implicit combinatorTag: WeakTypeTag[C]): ReflectedRepository[R] = {
     new ReflectedRepository[R] {
       lazy val typeTag = self.typeTag
       lazy val instance = self.instance
@@ -294,8 +361,13 @@ trait ReflectedRepository[R] { self =>
       lazy val algorithm = self.algorithm
       lazy val classLoader: ClassLoader = self.classLoader
       override lazy val combinatorComponents: Map[String, CombinatorInfo] = {
-        val dynamicCombinatorInfo = dynamicCombinatorInfoFor(combinatorTag.tpe.toString, combinator, position)
-        val mapKey = s"DynamicCombinator(${dynamicCombinatorInfo.name}, ${dynamicCombinatorInfo.uniqueNameTag})"
+        val dynamicCombinatorInfo = dynamicCombinatorInfoFor(
+          combinatorTag.tpe.toString,
+          combinator,
+          position
+        )
+        val mapKey =
+          s"DynamicCombinator(${dynamicCombinatorInfo.name}, ${dynamicCombinatorInfo.uniqueNameTag})"
         self.combinatorComponents + (mapKey -> dynamicCombinatorInfo)
       }
     }
@@ -303,9 +375,13 @@ trait ReflectedRepository[R] { self =>
 
   /** The set of all scala types present in this reflected repository. */
   lazy val scalaTypes: Set[universe.Type] =
-    combinatorComponents.values.flatMap(combinatorInfo =>
-      combinatorInfo.parameters.map(_.toSet).getOrElse(Set.empty) + combinatorInfo.result
-    ).toSet
+    combinatorComponents.values
+      .flatMap(combinatorInfo =>
+        combinatorInfo.parameters
+          .map(_.toSet)
+          .getOrElse(Set.empty) + combinatorInfo.result
+      )
+      .toSet
 
   /** The set of all intersection types representing Scala types present in this reflected repository. */
   lazy val nativeTypes: Set[Constructor] =
@@ -341,17 +417,25 @@ trait ReflectedRepository[R] { self =>
       info match {
         case StaticCombinatorInfo(name, _, _, _, _) =>
           q"${reify(this.instance).in(tb.mirror)}.asInstanceOf[${typeTag.in(tb.mirror).tpe}].${toTermName(name)}"
-        case DynamicCombinatorInfo(_, _, _, _, combinatorInstance, combinatorTypeTag, _, _) =>
+        case DynamicCombinatorInfo(
+            _,
+            _,
+            _,
+            _,
+            combinatorInstance,
+            combinatorTypeTag,
+            _,
+            _
+            ) =>
           q"${reify(combinatorInstance).in(tb.mirror)}.asInstanceOf[${combinatorTypeTag.in(tb.mirror).tpe}]"
       }
     def constructTerm(inhabitant: Tree): universe.Tree =
       inhabitant match {
-        case Tree(name, _)
-          if combinatorComponents(name).parameters.isEmpty =>
+        case Tree(name, _) if combinatorComponents(name).parameters.isEmpty =>
           q"${toCombinatorInstanceTree(combinatorComponents(name))}.apply"
         case Tree(name, _) =>
           q"${toCombinatorInstanceTree(combinatorComponents(name))}()"
-        case Tree(name, _, arguments@_*) =>
+        case Tree(name, _, arguments @ _*) =>
           q"${toCombinatorInstanceTree(combinatorComponents(name))}(..${arguments.map(constructTerm)})"
       }
     tb.eval(constructTerm(inhabitant)).asInstanceOf[T]
@@ -364,12 +448,21 @@ trait ReflectedRepository[R] { self =>
     * @param targetTag reflection information for the target type.
     * @tparam T the native Scala type to inhabit.
     */
-  def inhabit[T](semanticTypes: Type*)(implicit targetTag: WeakTypeTag[T]): InhabitationResult[T] =
+  def inhabit[T](
+      semanticTypes: Type*
+  )(implicit targetTag: WeakTypeTag[T]): InhabitationResult[T] =
     ReflectedRepository.synchronized {
-      val fullTaxonomy = nativeTypeTaxonomy.addNativeType[T].taxonomy.merge(semanticTaxonomy)
+      val fullTaxonomy =
+        nativeTypeTaxonomy.addNativeType[T].taxonomy.merge(semanticTaxonomy)
       val targetTypes = nativeTypeOf[T] +: semanticTypes
-      val targetType = targetTypes.init.foldRight(targetTypes.last){ case (ty, tgt) => Intersection(ty, tgt) }
-      val result = algorithm(substitutionSpace, SubtypeEnvironment(fullTaxonomy.underlyingMap), combinators)(Seq(targetType))
+      val targetType = targetTypes.init.foldRight(targetTypes.last) {
+        case (ty, tgt) => Intersection(ty, tgt)
+      }
+      val result = algorithm(
+        substitutionSpace,
+        SubtypeEnvironment(fullTaxonomy.underlyingMap),
+        combinators
+      )(Seq(targetType))
       InhabitationResult(result, targetType, evalInhabitant[T])
     }
 
@@ -378,12 +471,15 @@ trait ReflectedRepository[R] { self =>
     * Create new batch jobs using [InhabitationBatchJob.apply[R](Type*)] and [InhabitationBatchJob.addJob[R](Type*)].
     */
   sealed trait InhabitationBatchJob { self =>
+
     /** The native Scala type of the last request. */
     type RequestType
+
     /** All semantic types of the last request.
       * These are be joined in a big intersection as in [[inhabit]].
       */
     val semanticTypes: Seq[Type]
+
     /** Reflected type information about the native Scala request type. */
     val typeTag: WeakTypeTag[RequestType]
 
@@ -391,13 +487,17 @@ trait ReflectedRepository[R] { self =>
     type ResultType
 
     /** Collects subtype information about `RequestType`. */
-    def enrichTaxonomyWithTargets(taxonomy: NativeTaxonomyBuilder): NativeTaxonomyBuilder =
+    def enrichTaxonomyWithTargets(
+        taxonomy: NativeTaxonomyBuilder
+    ): NativeTaxonomyBuilder =
       taxonomy.addNativeType[RequestType](typeTag)
 
     /** Computes a sequence of all requested target types of this batch job. */
     def targets: Seq[Type] = {
       val targetTypes = nativeTypeOf[RequestType](typeTag) +: semanticTypes
-      Seq(targetTypes.init.foldRight(targetTypes.last) { case (ty, tgt) => Intersection(ty, tgt) })
+      Seq(targetTypes.init.foldRight(targetTypes.last) {
+        case (ty, tgt) => Intersection(ty, tgt)
+      })
     }
 
     /** Interpretes the tree grammar rules returned by the algorithm as the computed `ResultType`, that is
@@ -408,7 +508,9 @@ trait ReflectedRepository[R] { self =>
       * The result type is composed by creating a tuple of the current result type and the newly requested type `R`,
       * where `ResultType` is the first component and `R` is the second component.
       */
-    def addJob[R](semanticTypes: Type*)(implicit tag: WeakTypeTag[R]): InhabitationBatchJob.AuxWithPrior[R, ResultType] = {
+    def addJob[R](semanticTypes: Type*)(
+        implicit tag: WeakTypeTag[R]
+    ): InhabitationBatchJob.AuxWithPrior[R, ResultType] = {
       val sts: Seq[Type] = semanticTypes
       new InhabitationBatchJob with HasPriorJob[ResultType] {
         type RequestType = R
@@ -420,8 +522,13 @@ trait ReflectedRepository[R] { self =>
 
     /** Runs this batch job, returning the current native scala `ResultType`. */
     def run(): ResultType = {
-      val fullTaxonomy = enrichTaxonomyWithTargets(nativeTypeTaxonomy).taxonomy.merge(semanticTaxonomy)
-      val resultGrammar = algorithm(substitutionSpace, SubtypeEnvironment(fullTaxonomy.underlyingMap), combinators)(targets)
+      val fullTaxonomy = enrichTaxonomyWithTargets(nativeTypeTaxonomy).taxonomy
+        .merge(semanticTaxonomy)
+      val resultGrammar = algorithm(
+        substitutionSpace,
+        SubtypeEnvironment(fullTaxonomy.underlyingMap),
+        combinators
+      )(targets)
       toResult(resultGrammar)
     }
   }
@@ -431,26 +538,44 @@ trait ReflectedRepository[R] { self =>
     */
   sealed trait HasPriorJob[P] extends InhabitationBatchJob {
     override type ResultType = (P, InhabitationResult[RequestType])
+
     /** The rest of the batch job, for requests made before the request for type `P`. */
     val priorJob: InhabitationBatchJob.AuxWithResult[P]
-    abstract override def enrichTaxonomyWithTargets(taxonomy: NativeTaxonomyBuilder): NativeTaxonomyBuilder =
-      super.enrichTaxonomyWithTargets(priorJob.enrichTaxonomyWithTargets(taxonomy))
+    abstract override def enrichTaxonomyWithTargets(
+        taxonomy: NativeTaxonomyBuilder
+    ): NativeTaxonomyBuilder =
+      super.enrichTaxonomyWithTargets(
+        priorJob.enrichTaxonomyWithTargets(taxonomy)
+      )
 
     abstract override def targets: Seq[Type] =
       super.targets ++ priorJob.targets
 
     override def toResult(resultRules: Set[Rule]): ResultType = {
-      (priorJob.toResult(resultRules), // IntelliJ complains here for no reason, the code typechecks and compiles
-        InhabitationResult(resultRules, super.targets.head, evalInhabitant[RequestType]))
+      (
+        priorJob.toResult(
+          resultRules
+        ), // IntelliJ complains here for no reason, the code typechecks and compiles
+        InhabitationResult(
+          resultRules,
+          super.targets.head,
+          evalInhabitant[RequestType]
+        )
+      )
     }
   }
 
   /** Helper object to create new batch jobs of inhabitation requests. */
   object InhabitationBatchJob {
+
     /** The type of batch jobs where the most recently requested native Scala type is `R`. */
-    type Aux[R] = InhabitationBatchJob { type RequestType = R; type ResultType = InhabitationResult[R] }
+    type Aux[R] = InhabitationBatchJob {
+      type RequestType = R; type ResultType = InhabitationResult[R]
+    }
+
     /** The type of batch jobs where the combination of all requested native Scala type is `R`. */
     type AuxWithResult[R] = InhabitationBatchJob { type ResultType = R }
+
     /** The type of batch jobs where the most recently requested native scala type is `R` and the
       * combination of all requested native Scala type is `(P, R)`.
       */
@@ -458,6 +583,7 @@ trait ReflectedRepository[R] { self =>
       type RequestType = R
       type ResultType = (P, InhabitationResult[R])
     }
+
     /** Creates a new batch job, starting with a request for native Scala type `R` and the intersection of all
       * given `semanticTypes`.
       * Use [InhabitationBatchJob.addJob[R](Type*)] to add more requests.
@@ -478,6 +604,7 @@ trait ReflectedRepository[R] { self =>
 
 /** Helper object to construct a [[ReflectedRepository]]. */
 object ReflectedRepository {
+
   /** Translates native Scala type `A` into an intersection type constant. */
   def nativeTypeOf[A](implicit aTag: WeakTypeTag[A]): Constructor =
     nativeTypeOf(aTag.tpe)
@@ -502,7 +629,7 @@ object ReflectedRepository {
     */
   def fullTypeOf(combinatorInfo: CombinatorInfo): Type =
     combinatorInfo.semanticType match {
-      case None => nativeTypeOf(combinatorInfo)
+      case None        => nativeTypeOf(combinatorInfo)
       case Some(semTy) => Intersection(nativeTypeOf(combinatorInfo), semTy)
     }
 
@@ -520,11 +647,13 @@ object ReflectedRepository {
     * @tparam R the Scala type of the repository.
     * @return a repository that contains every combinator in `inst` and has methods to perform inhabitation.
     */
-  def apply[R](inst: R,
-    semanticTaxonomy: Taxonomy = Taxonomy.empty,
-    substitutionSpace: FiniteSubstitutionSpace = FiniteSubstitutionSpace.empty,
-    algorithm: InhabitationAlgorithm = BoundedCombinatoryLogic.algorithm,
-    classLoader: ClassLoader = getClass.getClassLoader
+  def apply[R](
+      inst: R,
+      semanticTaxonomy: Taxonomy = Taxonomy.empty,
+      substitutionSpace: FiniteSubstitutionSpace =
+        FiniteSubstitutionSpace.empty,
+      algorithm: InhabitationAlgorithm = BoundedCombinatoryLogic.algorithm,
+      classLoader: ClassLoader = getClass.getClassLoader
   )(implicit tag: WeakTypeTag[R]): ReflectedRepository[R] = {
     val algo = algorithm
     val semTax = semanticTaxonomy
@@ -540,6 +669,3 @@ object ReflectedRepository {
     }
   }
 }
-
-
-

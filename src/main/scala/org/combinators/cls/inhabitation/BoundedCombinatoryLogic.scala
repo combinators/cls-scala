@@ -22,12 +22,17 @@ import shapeless.feat.Finite
 import scala.collection.SeqView
 
 /** Type inhabitation for bounded combinatory logic (BCL). */
-class BoundedCombinatoryLogic(substitutionSpace: FiniteSubstitutionSpace, subtypes: SubtypeEnvironment, Gamma: Repository) {
+class BoundedCombinatoryLogic(
+    substitutionSpace: FiniteSubstitutionSpace,
+    subtypes: SubtypeEnvironment,
+    Gamma: Repository
+) {
 
   import subtypes._
 
   /** All allowed substitutions. */
-  lazy val substitutions: Finite[Variable => Type] = substitutionSpace.allowedSubstitutions
+  lazy val substitutions: Finite[Variable => Type] =
+    substitutionSpace.allowedSubstitutions
 
   /** Applies a substitution to a type. */
   private def applySubst(s: => Variable => Type)(sigma: Type): Type = {
@@ -42,7 +47,7 @@ class BoundedCombinatoryLogic(substitutionSpace: FiniteSubstitutionSpace, subtyp
           Intersection(subst(tau), subst(rho))
         case Product(tau, rho) =>
           Product(subst(tau), subst(rho))
-        case v@Variable(_) => s(v)
+        case v @ Variable(_) => s(v)
       }
     subst(sigma)
   }
@@ -50,12 +55,13 @@ class BoundedCombinatoryLogic(substitutionSpace: FiniteSubstitutionSpace, subtyp
   /** Returns a set of all variables occuring in type `sigma`. */
   private def variablesInType(sigma: Type): Set[Variable] = {
     sigma match {
-      case Omega => Set.empty
+      case Omega                    => Set.empty
       case Constructor(c, argument) => variablesInType(argument)
-      case Arrow(src, tgt) => variablesInType(src).union(variablesInType(tgt))
-      case Intersection(sigma, tau) => variablesInType(sigma).union(variablesInType(tau))
+      case Arrow(src, tgt)          => variablesInType(src).union(variablesInType(tgt))
+      case Intersection(sigma, tau) =>
+        variablesInType(sigma).union(variablesInType(tau))
       case Product(tau, rho) => variablesInType(tau).union(variablesInType(rho))
-      case v@Variable(_) => Set(v)
+      case v @ Variable(_)   => Set(v)
     }
   }
 
@@ -83,10 +89,10 @@ class BoundedCombinatoryLogic(substitutionSpace: FiniteSubstitutionSpace, subtyp
     }
   }
 
-
   /** Applies all substitutions to every combinator type in `Gamma`. */
   private def blowUp(Gamma: => Repository): Repository = {
-    if (substitutions.values.isEmpty) Gamma else {
+    if (substitutions.values.isEmpty) Gamma
+    else {
       Gamma.transform((_, ty) =>
         if (ty.isClosed) ty
         else {
@@ -94,14 +100,17 @@ class BoundedCombinatoryLogic(substitutionSpace: FiniteSubstitutionSpace, subtyp
           table.tail.foldLeft(applySubst(table.head)(ty)) {
             case (res, s) => Intersection(applySubst(s)(ty), res)
           }
-        })
+        }
+      )
     }
   }
 
   /** The repository expanded by every allowed substitution. */
   lazy val repository: Repository = blowUp(Gamma)
+
   /** The algorithm used for inhabitation with the expanded repository. */
-  lazy val algorithm: FiniteCombinatoryLogic = new FiniteCombinatoryLogic(subtypes, repository)
+  lazy val algorithm: FiniteCombinatoryLogic =
+    new FiniteCombinatoryLogic(subtypes, repository)
 
   /** Performs inhabitation of every type in targets */
   def inhabit(targets: Type*): Set[Rule] =
@@ -112,6 +121,8 @@ class BoundedCombinatoryLogic(substitutionSpace: FiniteSubstitutionSpace, subtyp
 object BoundedCombinatoryLogic {
   def algorithm: InhabitationAlgorithm = {
     case (substitutionSpace, subtypes, repository) =>
-      targets => new BoundedCombinatoryLogic(substitutionSpace, subtypes, repository).inhabit(targets: _*)
+      targets =>
+        new BoundedCombinatoryLogic(substitutionSpace, subtypes, repository)
+          .inhabit(targets: _*)
   }
 }

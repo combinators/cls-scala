@@ -19,43 +19,55 @@ package org.combinators.cls
 import org.combinators.cls.types._
 
 package object inhabitation {
+
   /** Repositories map combinator names to types. */
   type Repository = Map[String, Type]
 
   /** Rules describe how to form inhabitants from combinators. */
   sealed trait Rule {
+
     /** Returns the inhabitation target of this rule. */
     val target: Type
   }
+
   /** Represents uninhabited types. */
   final case class Failed(target: Type) extends Rule
+
   /** Represents types inhabited by a combinator without arguments. */
   final case class Combinator(target: Type, combinator: String) extends Rule
+
   /** Represents the application of a term of type `functionType` to a term of type `argumentType` to obtain
     * type `target`. */
-  final case class Apply(target: Type, functionType: Type, argumentType: Type) extends Rule
-
+  final case class Apply(target: Type, functionType: Type, argumentType: Type)
+      extends Rule
 
   /** Returns a prettified String representation of the given rule set */
   def prettyPrintRuleSet(rules: Set[Rule]): String = {
-    rules.groupBy(_.target).map {
-      case (target, entries) =>
-        val prettyEntries = entries.map {
-          case Failed(_) => "Uninhabited"
-          case Combinator(_, combinator) => combinator
-          case Apply(_, functionType, argumentType) => s"@($functionType, $argumentType)"
-        }
-        s"$target --> ${prettyEntries.mkString(" | ")}"
-    }.mkString("{", "; ", "}")
+    rules
+      .groupBy(_.target)
+      .map {
+        case (target, entries) =>
+          val prettyEntries = entries.map {
+            case Failed(_)                 => "Uninhabited"
+            case Combinator(_, combinator) => combinator
+            case Apply(_, functionType, argumentType) =>
+              s"@($functionType, $argumentType)"
+          }
+          s"$target --> ${prettyEntries.mkString(" | ")}"
+      }
+      .mkString("{", "; ", "}")
   }
 
   /** Returns a prettified String representation of the given (ordered) list of rules */
   def prettyPrintRuleList(rules: Seq[Rule]): String = {
-    rules.map {
-      case Failed(target) => s"$target --> Uninhabited"
-      case Combinator(target, combinator) => s"$target --> $combinator"
-      case Apply(target, functionType, argumentType) => s"$target --> @($functionType, $argumentType)"
-    }.mkString("[", "; ", "]")
+    rules
+      .map {
+        case Failed(target)                 => s"$target --> Uninhabited"
+        case Combinator(target, combinator) => s"$target --> $combinator"
+        case Apply(target, functionType, argumentType) =>
+          s"$target --> @($functionType, $argumentType)"
+      }
+      .mkString("[", "; ", "]")
   }
 
   /** For a finitite substitution space, a subtype environment and a repository `Gamma`, an
@@ -66,5 +78,9 @@ package object inhabitation {
     * `Seq(tau_1, tau_2, ..., tau_k)`.
     */
   type InhabitationAlgorithm =
-    (FiniteSubstitutionSpace, SubtypeEnvironment, Repository) => Seq[Type] => Set[Rule]
+    (
+        FiniteSubstitutionSpace,
+        SubtypeEnvironment,
+        Repository
+    ) => Seq[Type] => Set[Rule]
 }

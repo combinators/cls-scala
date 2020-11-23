@@ -21,7 +21,6 @@ import org.scalatest.funspec.AnyFunSpec
 import org.combinators.cls.types._
 import syntax._
 
-
 class DynamicCombinatorTest extends AnyFunSpec {
 
   object SemanticTypes {
@@ -39,7 +38,8 @@ class DynamicCombinatorTest extends AnyFunSpec {
     }
     @combinator object Show {
       def apply(x: Int): String = x.toString
-      val semanticType: Type = (Sense =>: Sense) :&: (SemanticTypes.NonSense =>: SemanticTypes.NonSense)
+      val semanticType: Type =
+        (Sense =>: Sense) :&: (SemanticTypes.NonSense =>: SemanticTypes.NonSense)
     }
   }
 
@@ -50,7 +50,6 @@ class DynamicCombinatorTest extends AnyFunSpec {
 
   val repository = new Repo
   val result = ReflectedRepository(repository)
-
 
   describe("The augmented repository") {
     val augmentedResult = result.addCombinator(MakeSense)
@@ -71,7 +70,7 @@ class DynamicCombinatorTest extends AnyFunSpec {
       }
     }
     describe("When dynamically agumented with MakeSense") {
-     describe("when inhabiting NonSense") {
+      describe("when inhabiting NonSense") {
         val inhabitants = augmentedResult.inhabit[String](NonSense)
         it("Should find NonSense") {
           assert(!inhabitants.isEmpty)

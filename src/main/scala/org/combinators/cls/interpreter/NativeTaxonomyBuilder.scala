@@ -43,17 +43,25 @@ class NativeTaxonomyBuilder(types: Set[Type] = Set.empty) {
   def taxonomy: Taxonomy = {
     def addTypeIfLte(taxonomy: Taxonomy, supertype: Type, subtype: Type) =
       if (subtype <:< supertype)
-        taxonomy.merge(Taxonomy(nativeTypeOf(supertype).name).addSubtype(nativeTypeOf(subtype).name))
+        taxonomy.merge(
+          Taxonomy(nativeTypeOf(supertype).name)
+            .addSubtype(nativeTypeOf(subtype).name)
+        )
       else taxonomy
 
-    types.foldLeft((Taxonomy.empty, Set.empty[Type])) {
-      case ((taxonomy, inserted), ty) =>
-        val newTaxonomy = inserted.foldLeft(taxonomy) {
-          case (newTaxonomy, otherType) =>
-            addTypeIfLte(addTypeIfLte(newTaxonomy, ty, otherType), otherType, ty)
-        }
-        (newTaxonomy, inserted + ty)
-    }._1
+    types
+      .foldLeft((Taxonomy.empty, Set.empty[Type])) {
+        case ((taxonomy, inserted), ty) =>
+          val newTaxonomy = inserted.foldLeft(taxonomy) {
+            case (newTaxonomy, otherType) =>
+              addTypeIfLte(
+                addTypeIfLte(newTaxonomy, ty, otherType),
+                otherType,
+                ty
+              )
+          }
+          (newTaxonomy, inserted + ty)
+      }
+      ._1
   }
 }
-

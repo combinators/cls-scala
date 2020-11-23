@@ -29,11 +29,14 @@ class NativeTaxonomyBuilderTest extends AnyFunSpec {
   val superTypeName: String = ReflectedRepository.nativeTypeOf[Super].name
   val subATypeName: String = ReflectedRepository.nativeTypeOf[SubA].name
   val subBTypeName: String = ReflectedRepository.nativeTypeOf[SubB].name
-  val aliasSubATypeName: String = ReflectedRepository.nativeTypeOf[AliasSubA].name
+  val aliasSubATypeName: String =
+    ReflectedRepository.nativeTypeOf[AliasSubA].name
   val stringTypeName: String = ReflectedRepository.nativeTypeOf[String].name
 
-  val seqStringTypeName: String = ReflectedRepository.nativeTypeOf[Seq[String]].name
-  val seqSuperTypeName: String = ReflectedRepository.nativeTypeOf[Seq[Super]].name
+  val seqStringTypeName: String =
+    ReflectedRepository.nativeTypeOf[Seq[String]].name
+  val seqSuperTypeName: String =
+    ReflectedRepository.nativeTypeOf[Seq[Super]].name
   val seqSubATypeName: String = ReflectedRepository.nativeTypeOf[Seq[SubA]].name
 
   val taxonomy: Taxonomy =

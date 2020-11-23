@@ -19,7 +19,6 @@ package org.combinators.cls.inhabitation
 import org.scalatest.funspec.AnyFunSpec
 import org.combinators.cls.types._
 
-
 class BCLTest extends AnyFunSpec {
 
   val mapTest =
@@ -37,21 +36,26 @@ class BCLTest extends AnyFunSpec {
     )
 
   val taxonomy: Taxonomy =
-    Taxonomy
-      .empty
-      .merge(Taxonomy("Char")
-              .addSubtype("Int"))
+    Taxonomy.empty
+      .merge(
+        Taxonomy("Char")
+          .addSubtype("Int")
+      )
       .merge(Taxonomy("String"))
 
   def addAll(k: NonEmptyKinding): NonEmptyKinding =
     k.addOption(Constructor("Char"))
-     .addOption(Constructor("Int"))
-     .addOption(Constructor("String"))
+      .addOption(Constructor("Int"))
+      .addOption(Constructor("String"))
 
   val kinding: Kinding =
     addAll(Kinding(Variable("alpha"))).merge(addAll(Kinding(Variable("beta"))))
 
-  val Gamma = new BoundedCombinatoryLogic(kinding, SubtypeEnvironment(taxonomy.underlyingMap), mapTest)
+  val Gamma = new BoundedCombinatoryLogic(
+    kinding,
+    SubtypeEnvironment(taxonomy.underlyingMap),
+    mapTest
+  )
 
   describe(Gamma.toString) {
     describe("|- ? : String") {
@@ -60,13 +64,22 @@ class BCLTest extends AnyFunSpec {
       it("should not be empty") {
         assert(results.nonEmpty)
       }
-      it("should unroll exactly to Tree(map, _, Seq(Tree(f, _, Seq()), Tree(l, _, Seq())))") {
+      it(
+        "should unroll exactly to Tree(map, _, Seq(Tree(f, _, Seq()), Tree(l, _, Seq())))"
+      ) {
         def isExpectedTree(t: Tree): Boolean =
           t.name == "map" &&
             t.arguments.size == 2 &&
-            t.arguments.headOption.exists(arg => arg.name == "f" && arg.arguments.isEmpty) &&
-            t.arguments.tail.headOption.exists(arg => arg.name == "l" && arg.arguments.isEmpty)
-        assert(TreeGrammarEnumeration(results, tgt).values.forall(_._2.forall(isExpectedTree)))
+            t.arguments.headOption.exists(arg =>
+              arg.name == "f" && arg.arguments.isEmpty
+            ) &&
+            t.arguments.tail.headOption.exists(arg =>
+              arg.name == "l" && arg.arguments.isEmpty
+            )
+        assert(
+          TreeGrammarEnumeration(results, tgt).values
+            .forall(_._2.forall(isExpectedTree))
+        )
       }
     }
   }

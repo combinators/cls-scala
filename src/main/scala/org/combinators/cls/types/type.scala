@@ -18,8 +18,10 @@ package org.combinators.cls.types
 
 /** Abstract base for all intersection types. */
 sealed trait Type {
+
   /** Parenthesizes the String `s` */
   def parens(s: String) = s"($s)"
+
   /** Returns the String representation of this type, parenthesized according to the precedence level `prec`.
     * Higher precedence levels call for more parenthesis.
     */
@@ -45,8 +47,8 @@ sealed trait Type {
 object Type {
   def intersect(types: Seq[Type]): Type =
     types match {
-      case Seq() => Omega
-      case Seq(sigma) => sigma
+      case Seq()        => Omega
+      case Seq(sigma)   => sigma
       case sigma +: tys => Intersection(sigma, intersect(tys))
     }
 }
@@ -68,7 +70,7 @@ case class Product(sigma: Type, tau: Type) extends Type {
     val productPrec = 9
     def productShowAssoc(ty: Type) = ty match {
       case Product(_, _) => ty.toStringPrec(productPrec)
-      case _ => ty.toStringPrec(productPrec + 1)
+      case _             => ty.toStringPrec(productPrec + 1)
     }
     val r = s"${productShowAssoc(sigma)} * ${productShowAssoc(tau)}"
     if (prec > productPrec) parens(r) else r
@@ -88,7 +90,7 @@ case class Intersection(sigma: Type, tau: Type) extends Type {
     val interPrec = 10
     def interShowAssoc(ty: Type) = ty match {
       case Intersection(_, _) => ty.toStringPrec(interPrec)
-      case _ => ty.toStringPrec(interPrec + 1)
+      case _                  => ty.toStringPrec(interPrec + 1)
     }
     val r = s"${interShowAssoc(sigma)} & ${interShowAssoc(tau)}"
     if (prec > interPrec) parens(r) else r
@@ -119,8 +121,10 @@ case class Arrow(source: Type, target: Type) extends Type {
   def toStringPrec(prec: Int): String = {
     val arrowPrec = 8
     val r = target match {
-      case Arrow(_, _) => s"${source.toStringPrec(arrowPrec + 1)} -> ${target.toStringPrec(arrowPrec)}"
-      case _ => s"${source.toStringPrec(arrowPrec + 1)} -> ${target.toStringPrec(arrowPrec + 1)}"
+      case Arrow(_, _) =>
+        s"${source.toStringPrec(arrowPrec + 1)} -> ${target.toStringPrec(arrowPrec)}"
+      case _ =>
+        s"${source.toStringPrec(arrowPrec + 1)} -> ${target.toStringPrec(arrowPrec + 1)}"
     }
     if (prec > arrowPrec) parens(r) else r
   }
@@ -138,6 +142,3 @@ case class Variable(name: String) extends Type {
   override final val isClosed: Boolean = false
   override final val size: Int = 1
 }
-
-
-
