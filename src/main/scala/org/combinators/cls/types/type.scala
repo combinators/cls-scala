@@ -64,7 +64,7 @@ case class Constructor(name: String, argument: Type = Omega) extends Type {
 
 /** Represents a product of two types. */
 case class Product(sigma: Type, tau: Type) extends Type {
-  final def toStringPrec(prec: Int): String = {
+  def toStringPrec(prec: Int): String = {
     val productPrec = 9
     def productShowAssoc(ty: Type) = ty match {
       case Product(_, _) => ty.toStringPrec(productPrec)
@@ -84,7 +84,7 @@ case class Product(sigma: Type, tau: Type) extends Type {
   * when converted into strings.
   */
 case class Intersection(sigma: Type, tau: Type) extends Type {
-  final def toStringPrec(prec: Int): String = {
+  def toStringPrec(prec: Int): String = {
     val interPrec = 10
     def interShowAssoc(ty: Type) = ty match {
       case Intersection(_, _) => ty.toStringPrec(interPrec)
@@ -101,7 +101,7 @@ case class Intersection(sigma: Type, tau: Type) extends Type {
 
 /** The universal intersection type &omega;, which is a supertype of everything. */
 case object Omega extends Type with Organized {
-  final def toStringPrec(prec: Int): String = "omega"
+  def toStringPrec(prec: Int): String = "omega"
 
   /** Omega has no paths, so its organization is the empty intersection */
   final val paths: List[Type with Path] = List.empty
@@ -116,7 +116,7 @@ case object Omega extends Type with Organized {
   * when converted into strings.
   */
 case class Arrow(source: Type, target: Type) extends Type {
-  final def toStringPrec(prec: Int): String = {
+  def toStringPrec(prec: Int): String = {
     val arrowPrec = 8
     val r = target match {
       case Arrow(_, _) => s"${source.toStringPrec(arrowPrec + 1)} -> ${target.toStringPrec(arrowPrec)}"
@@ -132,7 +132,7 @@ case class Arrow(source: Type, target: Type) extends Type {
 
 /** Variables in intersection type schemes. */
 case class Variable(name: String) extends Type {
-  final def toStringPrec(prec: Int): String = name
+  def toStringPrec(prec: Int): String = name
 
   override final val isOmega: Boolean = false
   override final val isClosed: Boolean = false
