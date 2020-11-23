@@ -19,12 +19,12 @@ package org.combinators.cls.inhabitation
 import org.combinators.cls.types._
 import org.combinators.cls.inhabitation._
 import syntax._
-import org.scalatest.FunSpec
+import org.scalatest.funspec.AnyFunSpec
 import shapeless.feat.Enumeration
 import scala.language.experimental
 
 
-class TreeGrammarEnumerationTest extends FunSpec {
+class TreeGrammarEnumerationTest extends AnyFunSpec {
 
   def production(from: Type, to: (String, Seq[Type])*): (Type, Set[(String, Seq[Type])]) =
     (from -> to.toSet)

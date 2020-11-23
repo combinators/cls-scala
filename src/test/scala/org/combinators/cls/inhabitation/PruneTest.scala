@@ -16,12 +16,12 @@
 
 package org.combinators.cls.inhabitation
 
-import org.scalatest._
+import org.scalatest.funspec.AnyFunSpec
 import org.combinators.cls.types._
 import org.combinators.cls.inhabitation.{Failed, Combinator, Apply}
 import org.combinators.cls.TestCompat._
 
-class PruneTest extends FunSpec {
+class PruneTest extends AnyFunSpec {
 
   val garbageCombinators =
     Map(

@@ -16,11 +16,11 @@
 
 package org.combinators.cls.inhabitation
 
-import org.scalatest._
+import org.scalatest.funspec.AnyFunSpec
 import org.combinators.cls.types._
 
 
-class BCLTest extends FunSpec {
+class BCLTest extends AnyFunSpec {
 
   val mapTest =
     Map(

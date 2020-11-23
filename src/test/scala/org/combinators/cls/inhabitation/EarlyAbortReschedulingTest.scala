@@ -17,9 +17,9 @@
 package org.combinators.cls.inhabitation
 
 import org.combinators.cls.types._
-import org.scalatest.FunSpec
+import org.scalatest.funspec.AnyFunSpec
 
-class EarlyAbortReschedulingTest extends FunSpec {
+class EarlyAbortReschedulingTest extends AnyFunSpec {
 
   val repository =
     Map(

@@ -17,9 +17,9 @@
 package org.combinators.cls.interpreter
 
 import org.combinators.cls.types.Taxonomy
-import org.scalatest.FunSpec
+import org.scalatest.funspec.AnyFunSpec
 
-class NativeTaxonomyBuilderTest extends FunSpec {
+class NativeTaxonomyBuilderTest extends AnyFunSpec {
   trait Super
   class SubA extends Super
   class SubB extends Super

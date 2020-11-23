@@ -19,11 +19,11 @@ package org.combinators.cls.inhabitation
 import org.combinators.cls.types._
 import org.combinators.cls.types.syntax._
 
-import org.scalatest.FunSpec
+import org.scalatest.funspec.AnyFunSpec
 
 import scala.util.Random
 
-class LabyrinthTest extends FunSpec {
+class LabyrinthTest extends AnyFunSpec {
 
   val labyrinthSize = { Random.setSeed(4242); 10 }
   val start: (Int, Int) = (0, 0)

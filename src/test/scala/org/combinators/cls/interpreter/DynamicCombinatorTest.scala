@@ -16,13 +16,13 @@
 
 package org.combinators.cls.interpreter
 
-import org.scalatest._
+import org.scalatest.funspec.AnyFunSpec
 
 import org.combinators.cls.types._
 import syntax._
 
 
-class DynamicCombinatorTest extends FunSpec {
+class DynamicCombinatorTest extends AnyFunSpec {
 
   object SemanticTypes {
     val NonSense: Type = Constructor("NonSense")

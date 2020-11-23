@@ -16,10 +16,10 @@
 
 package org.combinators.cls.types
 
-import org.scalatest.FunSpec
+import org.scalatest.funspec.AnyFunSpec
 import syntax._
 
-class SyntaxTest extends FunSpec {
+class SyntaxTest extends AnyFunSpec {
 
   val a = Constructor("a")
   val b = Constructor("b")

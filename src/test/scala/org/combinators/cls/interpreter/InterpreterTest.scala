@@ -17,7 +17,7 @@
 package org.combinators.cls.interpreter
 
 import org.combinators.cls.inhabitation.Tree
-import org.scalatest._
+import org.scalatest.funspec.AnyFunSpec
 
 import scala.reflect.runtime.universe.{Type => UType, _}
 import org.combinators.cls.types._
@@ -35,7 +35,7 @@ trait GenericTestRepo {
   }
 }
 
-class InterpreterTest extends FunSpec {
+class InterpreterTest extends AnyFunSpec {
 
   object SemanticTypes {
     val bar: Type = Constructor("bar")

@@ -16,9 +16,9 @@
 
 package org.combinators.cls.types
 
-import org.scalatest.FunSpec
+import org.scalatest.funspec.AnyFunSpec
 
-class SubtypesTest extends FunSpec {
+class SubtypesTest extends AnyFunSpec {
   val onlyInt = SubtypeEnvironment(Taxonomy("Int").underlyingMap)
   val acbdEnv = SubtypeEnvironment(Taxonomy("a").addSubtype("c").merge(Taxonomy("b").addSubtypes(Taxonomy("d").addSubtype("x"))).underlyingMap)
   describe("The environment only containing Int") {

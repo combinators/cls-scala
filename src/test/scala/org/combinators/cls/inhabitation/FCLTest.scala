@@ -16,10 +16,10 @@
 
 package org.combinators.cls.inhabitation
 
-import org.scalatest._
+import org.scalatest.funspec.AnyFunSpec
 import org.combinators.cls.types._
 
-class FCLTest extends FunSpec {
+class FCLTest extends AnyFunSpec {
 
   val naturalNumbers =
     Map(
