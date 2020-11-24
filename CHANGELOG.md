@@ -1,4 +1,4 @@
-### Version 2.2.0
+### Version 3.0.0
 This version replaces the algorithms by the version published in [A Type-Theoretic Framework for Software Component Synthesis](http://dx.doi.org/10.17877/DE290R-20320).
 - Constructors are now unary with products for arity > 1
 - Domain restrictions on substitution spaces allow to avoid duplication in types
@@ -7,6 +7,7 @@ This version replaces the algorithms by the version published in [A Type-Theoret
 - A long standing bug concerning the inhabitation of type omega is fixed
 - Several dependencies have been updated
 - Compatibility with Scala 2.13 is added
+- Symbol syntax for constructors is deprecated
 ### Version 2.1.0
 This version contains minor patches.
 - Method `removeEntriesWithArgument` is now non-final to allow logging in a debugger
