@@ -22,10 +22,7 @@ lazy val commonSettings = Seq(
     "-feature",
     "-language:implicitConversions"
   ),
-  scapegoatVersion in ThisBuild := "1.4.6",
-  concurrentRestrictions in Global ++= {
-    if (sys.env.get("CI").isDefined) Seq(Tags.limitAll(1)) else Seq.empty
-  }
+  scapegoatVersion in ThisBuild := "1.4.6"
 ) ++ publishSettings
 
 lazy val examples = (Project(id = "examples", base = file("examples")))
