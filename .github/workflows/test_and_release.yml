@@ -1,0 +1,71 @@
+name: Test code, update coverage, and release master branch
+
+on: [ push, pull_request ]
+env:
+  EXTRA_SBT_OPTS: -Dsbt.boot.lock=false
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ macos-latest, windows-latest, ubuntu-latest ]
+        java: [ 8, 11, 13, 15 ]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up JDK, Scala, and SBT
+      uses: olafurpg/setup-scala@v10
+      with:
+        java-version: adopt@1.${{ matrix.java }}
+    - name: Run tests
+      shell: bash
+      run: sbt $EXTRA_SBT_OPTS +test
+  coverage:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up JDK, Scala, and SBT
+      uses: olafurpg/setup-scala@v10
+      with:
+        java-version: adopt@1.15
+    - name: Analyze coverage
+      run: sbt $EXTRA_SBT_OPTS clean coverage +test
+    - name: Update coverage report 
+      env:
+        COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+      run: sbt $EXTRA_SBT_OPTS coverageReport coveralls
+  release:
+    runs-on: ubuntu-latest
+    needs: [ test, coverage ]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Check if we are head of master 
+      id: check_head_of_master
+      run: |
+        git fetch origin master &&
+        MASTER=`git rev-parse origin/master` &&
+        echo "::set-output name=head_of_master::$MASTER" &&
+        CURRENT=`git rev-list -n 1 ${{ github.ref }} || echo "NOT_MASTER"` &&
+        echo "::set-output name=current_job_ref::$CURRENT"
+    - name: Set up JDK, Scala, and SBT
+      if: steps.check_head_of_master.outputs.head_of_master == steps.check_head_of_master.outputs.current_job_ref
+      uses: olafurpg/setup-scala@v10
+      with:
+        java-version: adopt@1.15
+    - name: Build and release
+      if: steps.check_head_of_master.outputs.head_of_master == steps.check_head_of_master.outputs.current_job_ref
+      env:
+        SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+        SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+        SONA_USER: ${{ secrets.SONATYPE_USERNAME }}
+        SONA_PASS: ${{ secrets.SONATYPE_PASSWORD }}
+        GPG_PRIVATE: ${{ secrets.GPG_PRIVATE }}
+        PGP_PASS: ${{ secrets.PGP_PASS }}
+        CI: github
+      run: |
+        export GPG_TTY=$(tty) &&
+        echo $GPG_PRIVATE | base64 -d | gpg --passphrase=$PGP_PASS --yes --batch --pinentry-mode loopback --import &&
+        export PATH=`pwd`/.github/bin:$PATH &&
+        sbt $EXTRA_SBT_OPTS +releaseEarly sonatypeBundleRelease
+
