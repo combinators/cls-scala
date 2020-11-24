@@ -91,16 +91,16 @@ class SubtypesTest extends AnyFunSpec {
           Constructor("a", Product(Constructor("d"), Omega)),
           Constructor("a", Product(Omega, Constructor("d")))
         ).isSubtypeOf(
-            Constructor("a", Product(Constructor("b"), Constructor("d")))
-          )
+          Constructor("a", Product(Constructor("b"), Constructor("d")))
+        )
       )
       assert(
         Intersection(
           Constructor("a", Product(Constructor("d"), Omega)),
           Constructor("a", Product(Omega, Constructor("d")))
         ).isSupertypeOf(
-            Constructor("a", Product(Constructor("d"), Constructor("d")))
-          )
+          Constructor("a", Product(Constructor("d"), Constructor("d")))
+        )
       )
     }
     it("should split into multiple paths with omega arguments") {
@@ -130,11 +130,11 @@ class SubtypesTest extends AnyFunSpec {
           Arrow(Constructor("x", Constructor("c")), Constructor("a")),
           Intersection(Constructor("e"), Constructor("f"))
         ).isSubtypeOf(
-            Arrow(
-              Arrow(Constructor("b", Constructor("a")), Constructor("c")),
-              Constructor("f")
-            )
+          Arrow(
+            Arrow(Constructor("b", Constructor("a")), Constructor("c")),
+            Constructor("f")
           )
+        )
       )
     }
   }
@@ -150,22 +150,22 @@ class SubtypesTest extends AnyFunSpec {
           Product(Constructor("a"), Omega),
           Product(Constructor("b"), Constructor("c"))
         ).isSubtypeOf(
-            Product(
-              Intersection(Constructor("a"), Constructor("b")),
-              Constructor("c")
-            )
+          Product(
+            Intersection(Constructor("a"), Constructor("b")),
+            Constructor("c")
           )
+        )
       )
       assert(
         Product(
           Intersection(Constructor("a"), Constructor("b")),
           Constructor("c")
         ).isSupertypeOf(
-            Intersection(
-              Product(Constructor("a"), Omega),
-              Product(Constructor("b"), Constructor("c"))
-            )
+          Intersection(
+            Product(Constructor("a"), Omega),
+            Product(Constructor("b"), Constructor("c"))
           )
+        )
       )
     }
     it("should split into multiple paths with omega arguments") {
@@ -197,14 +197,14 @@ class SubtypesTest extends AnyFunSpec {
           Arrow(Product(Constructor("d"), Constructor("c")), Constructor("a")),
           Product(Constructor("c"), Constructor("f"))
         ).isSubtypeOf(
+          Arrow(
             Arrow(
-              Arrow(
-                Product(Constructor("b"), Constructor("a")),
-                Constructor("c")
-              ),
-              Product(Constructor("a"), Constructor("f"))
-            )
+              Product(Constructor("b"), Constructor("a")),
+              Constructor("c")
+            ),
+            Product(Constructor("a"), Constructor("f"))
           )
+        )
       )
     }
   }
@@ -239,11 +239,11 @@ class SubtypesTest extends AnyFunSpec {
           Constructor("a"),
           Arrow(Constructor("b"), Arrow(Constructor("e"), Constructor("c")))
         ).isSubtypeOf(
-            Arrow(
-              Constructor("c"),
-              Arrow(Constructor("d"), Arrow(Constructor("e"), Constructor("a")))
-            )
+          Arrow(
+            Constructor("c"),
+            Arrow(Constructor("d"), Arrow(Constructor("e"), Constructor("a")))
           )
+        )
       )
       assert(
         Arrow(Arrow(Constructor("c"), Constructor("b")), Constructor("c"))
