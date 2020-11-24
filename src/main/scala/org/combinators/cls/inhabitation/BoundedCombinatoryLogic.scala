@@ -91,18 +91,18 @@ class BoundedCombinatoryLogic(
 
   /** Applies all substitutions to every combinator type in `Gamma`. */
   private def blowUp(Gamma: => Repository): Repository = {
-    if (substitutions.values.isEmpty) Gamma
-    else {
-      Gamma.transform((_, ty) =>
-        if (ty.isClosed) ty
-        else {
-          val table = substitutionTable(ty)
-          table.tail.foldLeft(applySubst(table.head)(ty)) {
-            case (res, s) => Intersection(applySubst(s)(ty), res)
-          }
+    Gamma.transform((_, ty) =>
+      if (ty.isClosed) ty
+      else {
+        substitutionTable(ty).toSeq match {
+          case firstSubst +: table =>
+            table.foldLeft(applySubst(firstSubst)(ty)) {
+              case (res, s) => Intersection(applySubst(s)(ty), res)
+            }
+          case _ => Omega
         }
-      )
-    }
+      }
+    )
   }
 
   /** The repository expanded by every allowed substitution. */

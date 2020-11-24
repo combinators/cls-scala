@@ -195,7 +195,7 @@ class FiniteCombinatoryLogic(
         case (lesser, greater) => lesser.isSubtypeOf(greater)
       }
     def averageArgumentTypeSize(m: MultiArrow): Int = {
-      if (m._1.size > 0) m._1.foldLeft(0) { case (x, y) => x + y.size } / m._1.size
+      if (m._1.nonEmpty) m._1.foldLeft(0) { case (x, y) => x + y.size } / m._1.size
       else 0
     }
     ms.sortBy(averageArgumentTypeSize) // heuristic

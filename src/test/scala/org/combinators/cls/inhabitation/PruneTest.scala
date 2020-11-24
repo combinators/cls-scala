@@ -18,7 +18,6 @@ package org.combinators.cls.inhabitation
 
 import org.scalatest.funspec.AnyFunSpec
 import org.combinators.cls.types._
-import org.combinators.cls.inhabitation.{Apply, Combinator, Failed}
 import org.combinators.cls.TestCompat._
 
 class PruneTest extends AnyFunSpec {
