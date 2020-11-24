@@ -1,8 +1,6 @@
 name: Test code, update coverage, and release master branch
 
 on: [ push, pull_request ]
-env:
-  EXTRA_SBT_OPTS: -Dsbt.boot.lock=false
 
 jobs:
   test:
@@ -19,7 +17,7 @@ jobs:
         java-version: adopt@1.${{ matrix.java }}
     - name: Run tests
       shell: bash
-      run: sbt $EXTRA_SBT_OPTS +test
+      run: sbt +test
   coverage:
     runs-on: ubuntu-latest
     needs: test
@@ -30,11 +28,11 @@ jobs:
       with:
         java-version: adopt@1.15
     - name: Analyze coverage
-      run: sbt $EXTRA_SBT_OPTS clean coverage +test
+      run: sbt clean coverage +test
     - name: Update coverage report 
       env:
         COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
-      run: sbt $EXTRA_SBT_OPTS coverageReport coveralls
+      run: sbt coverageReport coveralls
   release:
     runs-on: ubuntu-latest
     needs: [ test, coverage ]
@@ -67,5 +65,5 @@ jobs:
         export GPG_TTY=$(tty) &&
         echo $GPG_PRIVATE | base64 -d | gpg --passphrase=$PGP_PASS --yes --batch --pinentry-mode loopback --import &&
         export PATH=`pwd`/.github/bin:$PATH &&
-        sbt $EXTRA_SBT_OPTS +releaseEarly sonatypeBundleRelease
+        sbt +releaseEarly sonatypeBundleRelease
 
