@@ -20,6 +20,7 @@ import org.combinators.cls.types._
 import shapeless.feat.Finite
 
 import scala.collection.SeqView
+import scala.util.Try
 
 /** Type inhabitation for bounded combinatory logic (BCL). */
 class BoundedCombinatoryLogic(
@@ -31,7 +32,7 @@ class BoundedCombinatoryLogic(
   import subtypes._
 
   /** All allowed substitutions. */
-  lazy val substitutions: Finite[Variable => Type] =
+  lazy val substitutions: Finite[PartialFunction[Variable, Type]] =
     substitutionSpace.allowedSubstitutions
 
   /** Applies a substitution to a type. */
@@ -52,7 +53,7 @@ class BoundedCombinatoryLogic(
     subst(sigma)
   }
 
-  /** Returns a set of all variables occuring in type `sigma`. */
+  /** Returns a set of all variables occurring in type `sigma`. */
   private def variablesInType(sigma: Type): Set[Variable] = {
     sigma match {
       case Omega                    => Set.empty
@@ -66,7 +67,7 @@ class BoundedCombinatoryLogic(
   }
 
   /** Computes a table of all valid substitutions of variables in `sigma`.
-    * This avoids applying unneccessary duplicate substitutions to types, e.g.:
+    * This avoids applying unnecessary duplicate substitutions to types, e.g.:
     * Gamma = { c: alpha -> x }
     * substitutions = {
     *   { alpha -> a, beta -> b },
@@ -85,7 +86,10 @@ class BoundedCombinatoryLogic(
   private def substitutionTable(sigma: Type): Set[Map[Variable, Type]] = {
     val domain = variablesInType(sigma)
     substitutions.values.foldLeft(Set.empty[Map[Variable, Type]]) {
-      case (res, s) => res + (domain.map(v => (v, s(v))).toMap)
+      case (res, s) =>
+        Try {
+          res + (domain.map(v => (v, s(v))).toMap)
+        }.getOrElse(res)
     }
   }
 

@@ -16,18 +16,21 @@
 
 package org.combinators.cls.types
 
-import shapeless.feat.{Enumeration, Finite}
+import shapeless.feat.Finite
 
 /** Things which induce finite spaces of substitutions. */
 trait FiniteSubstitutionSpace { self =>
 
   /** Obtains the space of well formed substitutions induced by `description`. */
-  def allowedSubstitutions: Finite[Variable => Type]
+  def allowedSubstitutions: Finite[PartialFunction[Variable, Type]]
 
   /** Adds an allowed substitution to this space. */
-  def addOption(substitution: Variable => Type): FiniteSubstitutionSpace =
+  def addOption(
+      substitution: PartialFunction[Variable, Type]
+  ): FiniteSubstitutionSpace =
     new FiniteSubstitutionSpace {
-      override def allowedSubstitutions: Finite[Variable => Type] =
+      override def allowedSubstitutions
+          : Finite[PartialFunction[Variable, Type]] =
         self.allowedSubstitutions :+: Finite.singleton(substitution)
     }
 }
@@ -37,13 +40,14 @@ object FiniteSubstitutionSpace {
 
   /** Returns the empty substitution space. */
   def empty: FiniteSubstitutionSpace = new FiniteSubstitutionSpace {
-    override def allowedSubstitutions: Finite[(Variable) => Type] = Finite.empty
+    override def allowedSubstitutions: Finite[PartialFunction[Variable, Type]] =
+      Finite.empty
   }
 
   /** Returns the substitution space where every variable can get replaced by [[Omega]] */
   def omegaSpace: FiniteSubstitutionSpace = new FiniteSubstitutionSpace {
-    override def allowedSubstitutions: Finite[(Variable) => Type] =
-      Finite.singleton(_ => Omega)
+    override def allowedSubstitutions: Finite[PartialFunction[Variable, Type]] =
+      Finite.singleton { case _ => Omega }
   }
 }
 
@@ -58,7 +62,7 @@ sealed trait Kinding
   /** Kindings induce finite substitution spaces.
     * We have: `S in WF iff S(alpha) = sigma for sigma in Kinding(alpha)`.
     */
-  lazy val allowedSubstitutions: Finite[Variable => Type] = {
+  lazy val allowedSubstitutions: Finite[PartialFunction[Variable, Type]] = {
     lazy val varMappings: Iterator[Finite[(Variable, Type)]] =
       underlyingMap.iterator.map {
         case (v, e) => e.map(v -> _)
