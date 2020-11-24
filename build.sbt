@@ -24,7 +24,7 @@ lazy val commonSettings = Seq(
   ),
   scapegoatVersion in ThisBuild := "1.4.6",
   concurrentRestrictions in Global ++= {
-    if (sys.env.get("CI") == Some("github")) Seq(Tags.limitAll(1)) else Seq.empty
+    if (sys.env.get("CI").isDefined) Seq(Tags.limitAll(1)) else Seq.empty
   }
 ) ++ publishSettings
 
