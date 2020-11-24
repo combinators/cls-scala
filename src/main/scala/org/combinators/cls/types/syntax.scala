@@ -61,16 +61,31 @@ trait ConstructorSyntax {
 trait ToConstructorSyntax extends ToTypeSyntax {
 
   /** Enables 'A notation for argumentless constructors */
+  @deprecated(
+    message =
+      "consider declaring a variable: 'Foo becomes val Foo = Constructor(\"Foo\")",
+    since = "cls-scala 3.0.0"
+  )
   implicit def toConstructor(name: Symbol): Constructor =
     Constructor(name.name, Omega)
 
   /** Enables `ToTypeSyntax` sugar for argumentless constructors . */
+  @deprecated(
+    message =
+      "consider declaring a variable: 'Foo becomes val Foo = Constructor(\"Foo\")",
+    since = "cls-scala 3.0.0"
+  )
   implicit def toTypeSyntax(name: Symbol): TypeSyntax =
     new TypeSyntax {
       lazy val ty: Type = Constructor(name.name, Omega)
     }
 
   /** Enables 'A('B) notation for constructors with arguments. */
+  @deprecated(
+    message =
+      "consider declaring a variable: 'Foo(x, y) becomes def Foo(x: Type, y: Type) = Constructor(\"Foo\", x, y)",
+    since = "cls-scala 3.0.0"
+  )
   implicit def toConstructorSyntax(fromName: Symbol): ConstructorSyntax =
     new ConstructorSyntax {
       lazy val name: Symbol = fromName

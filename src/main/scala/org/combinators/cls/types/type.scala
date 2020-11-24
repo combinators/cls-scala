@@ -55,6 +55,10 @@ object Type {
 
 /** Represents intersection type constructors. */
 case class Constructor(name: String, argument: Type = Omega) extends Type {
+  def this(name: String, argument: Type, arguments: Type*) = {
+    this(name, arguments.foldLeft(argument)(Product))
+  }
+
   def toStringPrec(prec: Int): String = {
     if (argument == Omega) s"$name" else s"$name($argument)"
   }
@@ -62,6 +66,12 @@ case class Constructor(name: String, argument: Type = Omega) extends Type {
   override val isOmega: Boolean = false
   override val isClosed: Boolean = argument.isClosed
   override val size: Int = 1 + argument.size
+}
+
+object Constructor {
+  def apply(name: String, argument: Type, arguments: Type*): Constructor = {
+    Constructor(name, arguments.foldLeft(argument)(Product))
+  }
 }
 
 /** Represents a product of two types. */
