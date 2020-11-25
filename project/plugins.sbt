@@ -1,7 +1,8 @@
 logLevel := Level.Warn
-addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.14.7")
-addSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.5.1")
-addSbtPlugin("org.scoverage" % "sbt-coveralls" % "1.2.5")
-addSbtPlugin("com.jsuereth" % "sbt-pgp" % "1.1.1")
-addSbtPlugin("ch.epfl.scala" % "sbt-release-early" % "2.1.1")
-addSbtPlugin("de.heikoseeberger" % "sbt-header" % "5.0.0")
+addSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.6.1")
+addSbtPlugin("org.scoverage" % "sbt-coveralls" % "1.2.7")
+addSbtPlugin("ch.epfl.scala" % "sbt-release-early" % "2.1.1+10-c6ef3f60")
+addSbtPlugin("de.heikoseeberger" % "sbt-header" % "5.6.0")
+addSbtPlugin("com.sksamuel.scapegoat" %% "sbt-scapegoat" % "1.1.0")
+addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.2")
+

@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Jan Bessai
+ * Copyright 2018-2020 Jan Bessai
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,49 +20,104 @@ import org.combinators.cls.types._
 import shapeless.feat.Finite
 
 import scala.collection.SeqView
+import scala.util.Try
 
 /** Type inhabitation for bounded combinatory logic (BCL). */
-class BoundedCombinatoryLogic(substitutionSpace: FiniteSubstitutionSpace, subtypes: SubtypeEnvironment, Gamma: Repository) {
+class BoundedCombinatoryLogic(
+    substitutionSpace: FiniteSubstitutionSpace,
+    subtypes: SubtypeEnvironment,
+    Gamma: Repository
+) {
 
   import subtypes._
 
   /** All allowed substitutions. */
-  lazy val substitutions: Finite[Variable => Type] = substitutionSpace.allowedSubstitutions
+  lazy val substitutions: Finite[PartialFunction[Variable, Type]] =
+    substitutionSpace.allowedSubstitutions
 
   /** Applies a substitution to a type. */
   private def applySubst(s: => Variable => Type)(sigma: Type): Type = {
     def subst(sigma: => Type): Type =
       sigma match {
         case Omega => Omega
-        case Constructor(c, arguments@_*) =>
-          Constructor(c, arguments.map(subst(_)): _*)
+        case Constructor(c, argument) =>
+          Constructor(c, subst(argument))
         case Arrow(src, tgt) =>
           Arrow(subst(src), subst(tgt))
         case Intersection(tau, rho) =>
           Intersection(subst(tau), subst(rho))
-        case v@Variable(_) => s(v)
+        case Product(tau, rho) =>
+          Product(subst(tau), subst(rho))
+        case v @ Variable(_) => s(v)
       }
     subst(sigma)
   }
 
-  /** Applies all substitutions of `kinding` to type `sigma`. */
-  private def blowUp(sigma: => Type): Finite[Seq[Type with Path]] =
-    if (substitutions.values.isEmpty) Finite.singleton(Organized(sigma).paths)
-    else substitutions.map { s => Organized(applySubst(s)(sigma)).paths }
-
-  /** Applies all substitutions of `kinding` to every combinator type in `Gamma`. */
-  private def blowUp(Gamma: => Repository): Repository = Gamma.mapValues { ty =>
-    val paths = blowUp(ty).values.view.map(_.minimize)
-    Organized.intersect(paths:_*)
+  /** Returns a set of all variables occurring in type `sigma`. */
+  private def variablesInType(sigma: Type): Set[Variable] = {
+    sigma match {
+      case Omega                    => Set.empty
+      case Constructor(c, argument) => variablesInType(argument)
+      case Arrow(src, tgt)          => variablesInType(src).union(variablesInType(tgt))
+      case Intersection(sigma, tau) =>
+        variablesInType(sigma).union(variablesInType(tau))
+      case Product(tau, rho) => variablesInType(tau).union(variablesInType(rho))
+      case v @ Variable(_)   => Set(v)
+    }
   }
 
-  /** The repository expanded by every substitution in `kinding`. */
+  /** Computes a table of all valid substitutions of variables in `sigma`.
+    * This avoids applying unnecessary duplicate substitutions to types, e.g.:
+    * Gamma = { c: alpha -> x }
+    * substitutions = {
+    *   { alpha -> a, beta -> b },
+    *   { alpha -> a, beta -> c },
+    *   { alpha -> b, beta -> d }
+    * }
+    * Would result in
+    * Gamma' = { c: (a -> x) & (a -> x) & (b -> x) }
+    * without this function.
+    * The generated substitution table is restricted in its domain:
+    * substitutionTable(alpha -> x) = {
+    *   { alpha -> a, alpha -> b}
+    * }
+    * which avoids the duplicate (a -> x) type in Gamma'.
+    */
+  private def substitutionTable(sigma: Type): Set[Map[Variable, Type]] = {
+    val domain = variablesInType(sigma)
+    substitutions.values.foldLeft(Set.empty[Map[Variable, Type]]) {
+      case (res, s) =>
+        Try {
+          res + (domain.map(v => (v, s(v))).toMap)
+        }.getOrElse(res)
+    }
+  }
+
+  /** Applies all substitutions to every combinator type in `Gamma`. */
+  private def blowUp(Gamma: => Repository): Repository = {
+    Gamma.transform((_, ty) =>
+      if (ty.isClosed) ty
+      else {
+        substitutionTable(ty).toSeq match {
+          case firstSubst +: table =>
+            table.foldLeft(applySubst(firstSubst)(ty)) {
+              case (res, s) => Intersection(applySubst(s)(ty), res)
+            }
+          case _ => Omega
+        }
+      }
+    )
+  }
+
+  /** The repository expanded by every allowed substitution. */
   lazy val repository: Repository = blowUp(Gamma)
+
   /** The algorithm used for inhabitation with the expanded repository. */
-  lazy val algorithm: FiniteCombinatoryLogic = new FiniteCombinatoryLogic(subtypes, repository)
+  lazy val algorithm: FiniteCombinatoryLogic =
+    new FiniteCombinatoryLogic(subtypes, repository)
 
   /** Performs inhabitation of every type in targets */
-  def inhabit(targets: Type*): TreeGrammar =
+  def inhabit(targets: Type*): Set[Rule] =
     algorithm.inhabit(targets: _*)
 }
 
@@ -70,6 +125,8 @@ class BoundedCombinatoryLogic(substitutionSpace: FiniteSubstitutionSpace, subtyp
 object BoundedCombinatoryLogic {
   def algorithm: InhabitationAlgorithm = {
     case (substitutionSpace, subtypes, repository) =>
-      targets => new BoundedCombinatoryLogic(substitutionSpace, subtypes, repository).inhabit(targets: _*)
+      targets =>
+        new BoundedCombinatoryLogic(substitutionSpace, subtypes, repository)
+          .inhabit(targets: _*)
   }
 }

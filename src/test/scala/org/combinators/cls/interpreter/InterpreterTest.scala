@@ -1,7 +1,23 @@
+/*
+ * Copyright 2018-2020 Jan Bessai
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.combinators.cls.interpreter
 
 import org.combinators.cls.inhabitation.Tree
-import org.scalatest._
+import org.scalatest.funspec.AnyFunSpec
 
 import scala.reflect.runtime.universe.{Type => UType, _}
 import org.combinators.cls.types._
@@ -19,7 +35,16 @@ trait GenericTestRepo {
   }
 }
 
-class InterpreterTest extends FunSpec {
+class InterpreterTest extends AnyFunSpec {
+
+  object SemanticTypes {
+    val bar: Type = Constructor("bar")
+    val foo: Type = Constructor("foo")
+    val A: Type = Constructor("A")
+    val B: Type = Constructor("B")
+    val C: Type = Constructor("C")
+  }
+  import SemanticTypes._
 
   trait Top
   trait Super extends Top
@@ -28,7 +53,7 @@ class InterpreterTest extends FunSpec {
   trait Repository1 {
     @combinator object f {
       def apply(x: => Int, y: String): List[Super] = List.empty
-      def semanticType: Type = Omega =>: 'bar =>: 'foo
+      def semanticType: Type = Omega =>: bar =>: SemanticTypes.foo
     }
     object foo
   }
@@ -40,7 +65,7 @@ class InterpreterTest extends FunSpec {
     }
     @combinator object g2 {
       def apply(x: Int, y: String): List[Sub] = List(Sub())
-      def semanticType: Type = Omega =>: 'bar =>: 'foo
+      def semanticType: Type = Omega =>: bar =>: foo
     }
     object notACombinator {
       def apply(x: Int): String = "I'm not a combinator"
@@ -50,11 +75,11 @@ class InterpreterTest extends FunSpec {
   trait RepoRepeat {
     @combinator object repeated {
       def apply(x: Double, y: Double): Double = x + y
-      def semanticType: Type = 'A =>: 'A =>: 'B
+      def semanticType: Type = A =>: A =>: B
     }
     @combinator object repeatedStart {
       def apply: Double = 42
-      val semanticType: Type = 'A
+      val semanticType: Type = A
     }
     val repatedTaxonomy: Taxonomy = Taxonomy("A").addSubtype("B")
   }
@@ -65,14 +90,17 @@ class InterpreterTest extends FunSpec {
     }
     @combinator object h2 {
       def apply: String = "42"
-      def semanticType: Type = 'foo :&: 'bar
+      def semanticType: Type = SemanticTypes.foo :&: bar
     }
     def alsoNotACombinator(): String = "I'm also not a combinator"
     val test: List[Sub] = List.empty
   }
 
   val repository = new Repo
-  val result = ReflectedRepository(repository, semanticTaxonomy = repository.repatedTaxonomy)
+  val result = ReflectedRepository(
+    repository,
+    semanticTaxonomy = repository.repatedTaxonomy
+  )
   val intTag: WeakTypeTag[Int] = implicitly
   val doubleTag: WeakTypeTag[Double] = implicitly
   val stringTag: WeakTypeTag[String] = implicitly
@@ -82,37 +110,79 @@ class InterpreterTest extends FunSpec {
   val typeTag: WeakTypeTag[Type] = implicitly
   val typeTypeTag: WeakTypeTag[Type => Type] = implicitly
 
-
   describe("The reflected repository") {
 
-    val fExpectedInfo = StaticCombinatorInfo("f", Some(List(intTag.tpe, stringTag.tpe)), listSuperTag.tpe, Some(Omega =>: 'bar =>: 'foo), null)
-    val g1ExpectedInfo = StaticCombinatorInfo("g1", Some(List(typeTag.tpe)), typeTypeTag.tpe, Some(Omega =>: Omega), null)
-    val g2ExpectedInfo = StaticCombinatorInfo("g2", Some(List(intTag.tpe, stringTag.tpe)), listSubTag.tpe, Some(Omega =>: 'bar =>: 'foo), null)
-    val h1ExpectedInfo = StaticCombinatorInfo("h1", Some(List()), intTag.tpe, None, null)
-    val h2ExpectedInfo = StaticCombinatorInfo("h2", None, stringTag.tpe, Some('foo :&: 'bar), null)
-    val repeatedExpectedInfo = StaticCombinatorInfo("repeated", Some(List(doubleTag.tpe, doubleTag.tpe)), doubleTag.tpe, Some('A =>: 'A =>: 'B), null)
-    val repeatedStartExpectedInfo = StaticCombinatorInfo("repeatedStart", None, doubleTag.tpe, Some('A), null)
+    val fExpectedInfo = StaticCombinatorInfo(
+      "f",
+      Some(List(intTag.tpe, stringTag.tpe)),
+      listSuperTag.tpe,
+      Some(Omega =>: bar =>: foo),
+      null
+    )
+    val g1ExpectedInfo = StaticCombinatorInfo(
+      "g1",
+      Some(List(typeTag.tpe)),
+      typeTypeTag.tpe,
+      Some(Omega =>: Omega),
+      null
+    )
+    val g2ExpectedInfo = StaticCombinatorInfo(
+      "g2",
+      Some(List(intTag.tpe, stringTag.tpe)),
+      listSubTag.tpe,
+      Some(Omega =>: bar =>: foo),
+      null
+    )
+    val h1ExpectedInfo =
+      StaticCombinatorInfo("h1", Some(List()), intTag.tpe, None, null)
+    val h2ExpectedInfo =
+      StaticCombinatorInfo("h2", None, stringTag.tpe, Some(foo :&: bar), null)
+    val repeatedExpectedInfo = StaticCombinatorInfo(
+      "repeated",
+      Some(List(doubleTag.tpe, doubleTag.tpe)),
+      doubleTag.tpe,
+      Some(A =>: A =>: B),
+      null
+    )
+    val repeatedStartExpectedInfo =
+      StaticCombinatorInfo("repeatedStart", None, doubleTag.tpe, Some(A), null)
 
     it(s"should include $fExpectedInfo") {
-      assert(result.combinatorComponents.values.toSet.exists(_ =:= fExpectedInfo))
+      assert(
+        result.combinatorComponents.values.toSet.exists(_ =:= fExpectedInfo)
+      )
     }
     it(s"should include $g1ExpectedInfo") {
-      assert(result.combinatorComponents.values.toSet.exists(_ =:= g1ExpectedInfo))
+      assert(
+        result.combinatorComponents.values.toSet.exists(_ =:= g1ExpectedInfo)
+      )
     }
     it(s"should include $g2ExpectedInfo") {
-      assert(result.combinatorComponents.values.toSet.exists(_ =:= g2ExpectedInfo))
+      assert(
+        result.combinatorComponents.values.toSet.exists(_ =:= g2ExpectedInfo)
+      )
     }
     it(s"should include $h1ExpectedInfo") {
-      assert(result.combinatorComponents.values.toSet.exists(_ =:= h1ExpectedInfo))
+      assert(
+        result.combinatorComponents.values.toSet.exists(_ =:= h1ExpectedInfo)
+      )
     }
     it(s"should include $h2ExpectedInfo") {
-      assert(result.combinatorComponents.values.toSet.exists(_ =:= h2ExpectedInfo))
+      assert(
+        result.combinatorComponents.values.toSet.exists(_ =:= h2ExpectedInfo)
+      )
     }
     it(s"should include $repeatedExpectedInfo") {
-      assert(result.combinatorComponents.values.toSet.exists(_ =:= repeatedExpectedInfo))
+      assert(
+        result.combinatorComponents.values.toSet
+          .exists(_ =:= repeatedExpectedInfo)
+      )
     }
     it(s"should include $repeatedStartExpectedInfo") {
-      assert(result.combinatorComponents.values.toSet.exists(_ =:= repeatedStartExpectedInfo))
+      assert(
+        result.combinatorComponents.values.toSet
+          .exists(_ =:= repeatedStartExpectedInfo)
+      )
     }
     it(s"should include nothing else") {
       val allExpected = Set(
@@ -124,7 +194,11 @@ class InterpreterTest extends FunSpec {
         repeatedExpectedInfo,
         repeatedStartExpectedInfo
       )
-      assert(result.combinatorComponents.values.toSet.forall(p => allExpected.exists(_ =:= p)))
+      assert(
+        result.combinatorComponents.values.toSet.forall(p =>
+          allExpected.exists(_ =:= p)
+        )
+      )
     }
 
   }
@@ -133,46 +207,66 @@ class InterpreterTest extends FunSpec {
     describe("when asked for subtypes of List[Super]") {
       it("should include List[Sub]") {
         assert(
-          result
-            .nativeTypeTaxonomy.taxonomy(ReflectedRepository.nativeTypeOf[List[Super]].name)
-            .contains(ReflectedRepository.nativeTypeOf[List[Sub]].name))
+          result.nativeTypeTaxonomy
+            .taxonomy(ReflectedRepository.nativeTypeOf[List[Super]].name)
+            .contains(ReflectedRepository.nativeTypeOf[List[Sub]].name)
+        )
       }
     }
   }
 
   val fTree =
-    Tree("f", ReflectedRepository.nativeTypeOf[List[Top]] :&: 'foo,
+    Tree(
+      "f",
+      ReflectedRepository.nativeTypeOf[List[Top]] :&: foo,
       Tree("h1", ReflectedRepository.nativeTypeOf[Int]),
-      Tree("h2", ReflectedRepository.nativeTypeOf[String] :&: 'bar))
+      Tree("h2", ReflectedRepository.nativeTypeOf[String] :&: bar)
+    )
   val g2Tree =
-    Tree("g2", ReflectedRepository.nativeTypeOf[List[Top]] :&: 'foo ,
+    Tree(
+      "g2",
+      ReflectedRepository.nativeTypeOf[List[Top]] :&: foo,
       Tree("h1", ReflectedRepository.nativeTypeOf[Int]),
-      Tree("h2", ReflectedRepository.nativeTypeOf[String] :&: 'bar))
+      Tree("h2", ReflectedRepository.nativeTypeOf[String] :&: bar)
+    )
   val subtypeEnvironmentToCompareTrees =
-    SubtypeEnvironment(result.nativeTypeTaxonomy
-      .addNativeType[List[Top]]
-      .addNativeType[Int]
-      .addNativeType[String]
-      .taxonomy
-      .merge(result.semanticTaxonomy)
-      .underlyingMap)
+    SubtypeEnvironment(
+      result.nativeTypeTaxonomy
+        .addNativeType[List[Top]]
+        .addNativeType[Int]
+        .addNativeType[String]
+        .taxonomy
+        .merge(result.semanticTaxonomy)
+        .underlyingMap
+    )
 
-  describe("when used for inhabitation of List[Top] :&: 'foo") {
-    val inhabitants = result.inhabit[List[Top]]('foo)
+  describe("when used for inhabitation of List[Top] :&: foo") {
+    val inhabitants = result.inhabit[List[Top]](foo)
     val semanticType = inhabitants.interpretedTerms.values.flatMap(_._2)
 
-      it(s"should yield $fTree and $g2Tree") {
-        assert(!inhabitants.isInfinite)
-        assert(!inhabitants.isEmpty)
+    it(s"should yield $fTree and $g2Tree") {
+      assert(!inhabitants.isInfinite)
+      assert(!inhabitants.isEmpty)
 
-        assert(inhabitants.terms.values.flatMap(_._2).forall(tree =>
-          fTree.equalsWithSubtypeEqualityIn(subtypeEnvironmentToCompareTrees, tree) ||
-            g2Tree.equalsWithSubtypeEqualityIn(subtypeEnvironmentToCompareTrees, tree)))
+      assert(
+        inhabitants.terms.values
+          .flatMap(_._2)
+          .forall(tree =>
+            fTree.equalsWithSubtypeEqualityIn(
+              subtypeEnvironmentToCompareTrees,
+              tree
+            ) ||
+              g2Tree.equalsWithSubtypeEqualityIn(
+                subtypeEnvironmentToCompareTrees,
+                tree
+              )
+          )
+      )
     }
   }
 
-  describe("when used for inhabitation of Double :&: 'A") {
-    val inhabitants = result.inhabit[Double]('A)
+  describe("when used for inhabitation of Double :&: A") {
+    val inhabitants = result.inhabit[Double](A)
     val terms = inhabitants.interpretedTerms
 
     it(s"should be infinite") {
@@ -191,16 +285,22 @@ class InterpreterTest extends FunSpec {
     }
   }
 
-  describe("when batch inhabiting List[Top] :&: 'foo and Double :&: 'A and Double :&: 'C with C = A") {
+  describe(
+    "when batch inhabiting List[Top] :&: 'foo and Double :&: A and Double :&: C with C = A"
+  ) {
     import scala.language.existentials
-    val result = ReflectedRepository(repository,
-      semanticTaxonomy = repository.repatedTaxonomy.merge(Taxonomy("C").addSubtype("A").merge(Taxonomy("A").addSubtype("C"))))
-
+    val result = ReflectedRepository(
+      repository,
+      semanticTaxonomy = repository.repatedTaxonomy.merge(
+        Taxonomy("C").addSubtype("A").merge(Taxonomy("A").addSubtype("C"))
+      )
+    )
 
     lazy val job =
-      result.InhabitationBatchJob[List[Top]]('foo)
-        .addJob[Double]('A)
-        .addJob[Double]('C)
+      result
+        .InhabitationBatchJob[List[Top]](foo)
+        .addJob[Double](A)
+        .addJob[Double](C)
 
     it(s"should have a job with two targets") {
       job.targets.length == 3
@@ -210,9 +310,20 @@ class InterpreterTest extends FunSpec {
     it(s"should yield $fTree and $g2Tree") {
       assert(!inhabitants._1._1.isInfinite)
       assert(inhabitants._1._1.size.exists(_ >= 2))
-      assert(inhabitants._1._1.terms.values.flatMap(_._2).forall(tree =>
-        fTree.equalsWithSubtypeEqualityIn(subtypeEnvironmentToCompareTrees, tree) ||
-          g2Tree.equalsWithSubtypeEqualityIn(subtypeEnvironmentToCompareTrees, tree)))
+      assert(
+        inhabitants._1._1.terms.values
+          .flatMap(_._2)
+          .forall(tree =>
+            fTree.equalsWithSubtypeEqualityIn(
+              subtypeEnvironmentToCompareTrees,
+              tree
+            ) ||
+              g2Tree.equalsWithSubtypeEqualityIn(
+                subtypeEnvironmentToCompareTrees,
+                tree
+              )
+          )
+      )
     }
 
     it(s"should have an infinite third component") {
@@ -220,15 +331,21 @@ class InterpreterTest extends FunSpec {
     }
 
     it(s"should yield 42") {
-      assert(inhabitants._1._2.interpretedTerms.values.flatMap(_._2).contains(42))
+      assert(
+        inhabitants._1._2.interpretedTerms.values.flatMap(_._2).contains(42)
+      )
       assert(inhabitants._2.interpretedTerms.values.flatMap(_._2).contains(42))
     }
     it("should yield 84") {
-      assert(inhabitants._1._2.interpretedTerms.values.flatMap(_._2).contains(84))
+      assert(
+        inhabitants._1._2.interpretedTerms.values.flatMap(_._2).contains(84)
+      )
       assert(inhabitants._2.interpretedTerms.values.flatMap(_._2).contains(84))
     }
     it("should yield 126") {
-      assert(inhabitants._1._2.interpretedTerms.values.flatMap(_._2).contains(126))
+      assert(
+        inhabitants._1._2.interpretedTerms.values.flatMap(_._2).contains(126)
+      )
       assert(inhabitants._2.interpretedTerms.values.flatMap(_._2).contains(126))
     }
   }
@@ -236,7 +353,9 @@ class InterpreterTest extends FunSpec {
   describe("Interpretation of inhabitants") {
     describe(s"Interpretation of $fTree") {
       it("should yield List.empty[Super]") {
-        assert(result.evalInhabitant[List[Super]](fTree) == List.empty[List[Super]])
+        assert(
+          result.evalInhabitant[List[Super]](fTree) == List.empty[List[Super]]
+        )
       }
     }
     describe(s"Interpretation of $g2Tree") {
@@ -246,14 +365,19 @@ class InterpreterTest extends FunSpec {
     }
   }
 
-
-
   describe("Generic Instantiation") {
 
     val genericInstanceRepo = new GenericTestRepo {}
-    val reflectedGenericInstanceRepo = ReflectedRepository[GenericTestRepo](genericInstanceRepo)
+    val reflectedGenericInstanceRepo =
+      ReflectedRepository[GenericTestRepo](genericInstanceRepo)
     val intTag: WeakTypeTag[Int] = implicitly
-    val IntIdExpectedInfo = StaticCombinatorInfo("IntId", Some(List(intTag.tpe)), intTag.tpe, None, null)
+    val IntIdExpectedInfo = StaticCombinatorInfo(
+      "IntId",
+      Some(List(intTag.tpe)),
+      intTag.tpe,
+      None,
+      null
+    )
     it("should resolve type variables") {
       val result = reflectedGenericInstanceRepo.combinatorComponents("IntId")
       assert(result =:= IntIdExpectedInfo)

@@ -1,10 +1,25 @@
+/*
+ * Copyright 2018-2020 Jan Bessai
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.combinators.cls.inhabitation
 
-import org.scalatest._
+import org.scalatest.funspec.AnyFunSpec
 import org.combinators.cls.types._
 
-
-class BCLTest extends FunSpec {
+class BCLTest extends AnyFunSpec {
 
   val mapTest =
     Map(
@@ -21,21 +36,26 @@ class BCLTest extends FunSpec {
     )
 
   val taxonomy: Taxonomy =
-    Taxonomy
-      .empty
-      .merge(Taxonomy("Char")
-              .addSubtype("Int"))
+    Taxonomy.empty
+      .merge(
+        Taxonomy("Char")
+          .addSubtype("Int")
+      )
       .merge(Taxonomy("String"))
 
   def addAll(k: NonEmptyKinding): NonEmptyKinding =
     k.addOption(Constructor("Char"))
-     .addOption(Constructor("Int"))
-     .addOption(Constructor("String"))
+      .addOption(Constructor("Int"))
+      .addOption(Constructor("String"))
 
   val kinding: Kinding =
     addAll(Kinding(Variable("alpha"))).merge(addAll(Kinding(Variable("beta"))))
 
-  val Gamma = new BoundedCombinatoryLogic(kinding, SubtypeEnvironment(taxonomy.underlyingMap), mapTest)
+  val Gamma = new BoundedCombinatoryLogic(
+    kinding,
+    SubtypeEnvironment(taxonomy.underlyingMap),
+    mapTest
+  )
 
   describe(Gamma.toString) {
     describe("|- ? : String") {
@@ -44,14 +64,22 @@ class BCLTest extends FunSpec {
       it("should not be empty") {
         assert(results.nonEmpty)
       }
-      it("should unroll exactly to Tree(map, _, Tree(f, _), Tree(l, _))") {
+      it(
+        "should unroll exactly to Tree(map, _, Seq(Tree(f, _, Seq()), Tree(l, _, Seq())))"
+      ) {
+        def isExpectedTree(t: Tree): Boolean =
+          t.name == "map" &&
+            t.arguments.size == 2 &&
+            t.arguments.headOption.exists(arg =>
+              arg.name == "f" && arg.arguments.isEmpty
+            ) &&
+            t.arguments.tail.headOption.exists(arg =>
+              arg.name == "l" && arg.arguments.isEmpty
+            )
         assert(
-          TreeGrammarEnumeration(results, tgt)
-            .values
-            .flatMap(_._2).toSet ==
-            Set(Tree("map", Constructor("List", Constructor("String")), Tree("f", Arrow(Constructor("Int"), Constructor("String"))) ,Tree("l", Constructor("List", Constructor("Int")))), Tree("map",Constructor("List", Constructor("String")), Tree("f",Arrow(Constructor("Char"), Constructor("String"))), Tree("l", Constructor("List", Constructor("Char"))))))
-
-
+          TreeGrammarEnumeration(results, tgt).values
+            .forall(_._2.forall(isExpectedTree))
+        )
       }
     }
   }

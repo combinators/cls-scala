@@ -4,8 +4,8 @@ import sbt.Resolver
 lazy val commonSettings = Seq(
   organization := "org.combinators",
 
-  scalaVersion := "2.12.6",
-  crossScalaVersions := Seq("2.11.12", scalaVersion.value),
+  scalaVersion := "2.13.3",
+  crossScalaVersions := Seq("2.11.12", "2.12.12", scalaVersion.value),
 
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
@@ -14,14 +14,15 @@ lazy val commonSettings = Seq(
     Resolver.typesafeRepo("snapshots")
   ),
 
-  headerLicense := Some(HeaderLicense.ALv2("2018", "Jan Bessai")),
+  headerLicense := Some(HeaderLicense.ALv2("2018-2020", "Jan Bessai")),
 
   scalacOptions ++= Seq(
     "-unchecked",
     "-deprecation",
     "-feature",
     "-language:implicitConversions"
-  )
+  ),
+  scapegoatVersion in ThisBuild := "1.4.6"
 ) ++ publishSettings
 
 lazy val examples = (Project(id = "examples", base = file("examples")))
@@ -36,13 +37,36 @@ lazy val root = (Project(id = "cls-scala", base = file(".")))
     .settings(
       moduleName := "cls-scala",
       libraryDependencies ++= Seq(
-        "org.combinators" %% "shapeless-feat" % "0.2.2",
+        "org.combinators" %% "shapeless-feat" % "0.2.5",
         "org.scala-lang" % "scala-compiler" % scalaVersion.value,
-        "org.scalactic" %% "scalactic" % "3.0.5" % "test",
-        "org.scalatest" %% "scalatest" % "3.0.5" % "test"
-      )
-    )
+        "org.scalactic" %% "scalactic" % "3.2.0" % "test",
+        "org.scalatest" %% "scalatest" % "3.2.2" % "test",
+        "ch.qos.logback" % "logback-classic" % "1.2.3",
+        "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
+      ),
+      libraryDependencies ++= {
+        CrossVersion.partialVersion(scalaVersion.value) match {
+          case Some((2, n)) if n >= 13 =>
+            Seq("org.scala-lang.modules" %% "scala-parallel-collections" % "1.0.0")
+          case _ => Seq()
+        }
+      },
 
+      unmanagedSourceDirectories in Compile += {
+        val sourceDir = (sourceDirectory in Compile).value
+        CrossVersion.partialVersion(scalaVersion.value) match {
+          case Some((2, n)) if n >= 13 => sourceDir / "scala-2.13+"
+          case _                       => sourceDir / "scala-2.12-"
+        }
+      },
+      unmanagedSourceDirectories in Test += {
+        val sourceDir = (sourceDirectory in Test).value
+        CrossVersion.partialVersion(scalaVersion.value) match {
+          case Some((2, n)) if n >= 13 => sourceDir / "scala-2.13+"
+          case _                       => sourceDir / "scala-2.12-"
+        }
+      }
+    )
 
 lazy val publishSettings = Seq(
   homepage := Some(url("https://combinators.org")),
@@ -53,9 +77,7 @@ lazy val publishSettings = Seq(
     Developer("heineman", "George T. Heineman", "heineman@wpi.edu", url("http://www.cs.wpi.edu/~heineman")),
     Developer("BorisDuedder", "Boris Düdder", "boris.d@di.ku.dk", url("http://duedder.net"))
   ),
-
-  pgpPublicRing := file("travis/local.pubring.asc"),
-  pgpSecretRing := file("travis/local.secring.asc"),
+  releaseEarlyWith := SonatypePublisher
 )
 
 lazy val noPublishSettings = Seq(

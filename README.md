@@ -1,13 +1,11 @@
 # cls-scala
-[![Maven Central](https://img.shields.io/maven-central/v/org.combinators/cls-scala_2.12.svg)](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.combinators%22%20AND%20%22cls-scala%22)
-[![build status](https://travis-ci.org/combinators/cls-scala.svg?branch=master)](https://travis-ci.org/combinators/cls-scala)
+[![Maven Central](https://img.shields.io/maven-central/v/org.combinators/cls-scala_2.13.svg)](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.combinators%22%20AND%20%22cls-scala%22)
+[![build status](https://github.com/combinators/cls-scala/workflows/Test%20code,%20update%20coverage,%20and%20release%20master%20branch/badge.svg?branch=master)](https://github.com/combinators/cls-scala/actions?query=workflow%3A%22Test+code%2C+update+coverage%2C+and+release+master+branch%22)
 [![Coverage Status](https://coveralls.io/repos/github/combinators/cls-scala/badge.svg?branch=master)](https://coveralls.io/github/combinators/cls-scala?branch=master)
 [![Join the chat at https://gitter.im/combinators/cls-scala](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/combinators/cls-scala)
 ## The Combinatory Logic Synthesizer (CL)S Framework
 
 This project implements the Combinatory Logic Synthesizer (CL)S framework in Scala.
-
-For more information see our [documentation project](https://combinators.github.io/).
 
 Existing users please refer to the [CHANGELOG](CHANGELOG.md) for news.
 
@@ -22,7 +20,7 @@ You can search for released versions [here](http://search.maven.org/#search%7Cga
 
 To obtain the latest unreleased development version, clone the repository and run `sbt publishLocal`.
 
-Currently, Scala 2.11 and 2.12 are supported.
+Currently, Scala 2.11, 2.12, and 2.13 are supported.
 
 ## Examples
 
@@ -42,6 +40,7 @@ Join [combinators/cls-scala](https://gitter.im/combinators/cls-scala) on Gitter.
 - Jan Bessai
 - Boris Düdder
 - George T. Heineman
+- Anna Vasileva
 
 ### Contributers
 
