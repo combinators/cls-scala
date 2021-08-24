@@ -1,0 +1,21 @@
+name: Test code on Mac (separate because of https://github.com/actions/virtual-environments/issues/736)
+
+on: [ push, pull_request ]
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ macos-latest ]
+        java: [ 8, 11, 15, 16 ]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v2.3.4
+    - name: Set up JDK, Scala, and SBT
+      uses: olafurpg/setup-scala@v13
+      with:
+        java-version: adopt@1.${{ matrix.java }}
+    - name: Run tests
+      shell: bash
+      run: sbt +test
+

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Jan Bessai
+ * Copyright 2018-2021 Jan Bessai
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,12 +67,13 @@ trait TreeGrammarEnumeration {
       case Apply(target, functionType, argumentType) =>
         lazy val functionTerms = enumerationMap(functionType)
         lazy val argumentTerms = enumerationMap(argumentType)
-        functionTerms
-          .product(argumentTerms)
-          .map {
-            case (functionTerm, argument) => functionTerm(target, argument)
-          }
-          .pay
+        lazy val newResults = functionTerms
+            .product(argumentTerms)
+            .map {
+              case (functionTerm, argument) => functionTerm(target, argument)
+            }
+            .pay
+        enum.union(newResults)
     }
 
   /** Enumerates all expressions for a type acting as the start symbol. */
