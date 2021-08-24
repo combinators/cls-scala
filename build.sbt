@@ -4,8 +4,8 @@ import sbt.Resolver
 lazy val commonSettings = Seq(
   organization := "org.combinators",
 
-  scalaVersion := "2.13.3",
-  crossScalaVersions := Seq("2.11.12", "2.12.12", scalaVersion.value),
+  scalaVersion := "2.13.6",
+  crossScalaVersions := Seq("2.11.12", "2.12.14", scalaVersion.value),
 
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
@@ -14,7 +14,7 @@ lazy val commonSettings = Seq(
     Resolver.typesafeRepo("snapshots")
   ),
 
-  headerLicense := Some(HeaderLicense.ALv2("2018-2020", "Jan Bessai")),
+  headerLicense := Some(HeaderLicense.ALv2("2018-2021", "Jan Bessai")),
 
   scalacOptions ++= Seq(
     "-unchecked",
@@ -22,7 +22,7 @@ lazy val commonSettings = Seq(
     "-feature",
     "-language:implicitConversions"
   ),
-  scapegoatVersion in ThisBuild := "1.4.6"
+  scapegoatVersion in ThisBuild := "1.4.9"
 ) ++ publishSettings
 
 lazy val examples = (Project(id = "examples", base = file("examples")))
