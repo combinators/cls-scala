@@ -67,12 +67,13 @@ trait TreeGrammarEnumeration {
       case Apply(target, functionType, argumentType) =>
         lazy val functionTerms = enumerationMap(functionType)
         lazy val argumentTerms = enumerationMap(argumentType)
-        functionTerms
-          .product(argumentTerms)
-          .map {
-            case (functionTerm, argument) => functionTerm(target, argument)
-          }
-          .pay
+        lazy val newResults = functionTerms
+            .product(argumentTerms)
+            .map {
+              case (functionTerm, argument) => functionTerm(target, argument)
+            }
+            .pay
+        enum.union(newResults)
     }
 
   /** Enumerates all expressions for a type acting as the start symbol. */
