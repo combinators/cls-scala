@@ -7,12 +7,12 @@ jobs:
     strategy:
       matrix:
         os: [ macos-latest, windows-latest, ubuntu-latest ]
-        java: [ 8, 11, 15 ]
+        java: [ 8, 11, 15, 16 ]
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v2.3.4
     - name: Set up JDK, Scala, and SBT
-      uses: olafurpg/setup-scala@v10
+      uses: olafurpg/setup-scala@v13
       with:
         java-version: adopt@1.${{ matrix.java }}
     - name: Run tests
@@ -22,11 +22,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v2.3.4
     - name: Set up JDK, Scala, and SBT
-      uses: olafurpg/setup-scala@v10
+      uses: olafurpg/setup-scala@v13
       with:
-        java-version: adopt@1.15
+        java-version: adopt@1.16
     - name: Analyze coverage
       run: sbt clean coverage +test
     - name: Update coverage report 
@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ test, coverage ]
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v2.3.4
     - name: Check if we are head of master 
       id: check_head_of_master
       run: |
@@ -48,9 +48,9 @@ jobs:
         echo "::set-output name=current_job_ref::$CURRENT"
     - name: Set up JDK, Scala, and SBT
       if: steps.check_head_of_master.outputs.head_of_master == steps.check_head_of_master.outputs.current_job_ref
-      uses: olafurpg/setup-scala@v10
+      uses: olafurpg/setup-scala@v13
       with:
-        java-version: adopt@1.15
+        java-version: adopt@1.16
     - name: Build and release
       if: steps.check_head_of_master.outputs.head_of_master == steps.check_head_of_master.outputs.current_job_ref
       env:
