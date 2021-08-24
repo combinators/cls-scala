@@ -32,6 +32,7 @@ jobs:
     - name: Update coverage report 
       env:
         COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+        COVERALLS_FLAG_NAME: Scala ${{ matrix.scala }}
       run: sbt coverageReport coveralls
   release:
     runs-on: ubuntu-latest
