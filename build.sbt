@@ -22,7 +22,7 @@ lazy val commonSettings = Seq(
     "-feature",
     "-language:implicitConversions"
   ),
-  scapegoatVersion in ThisBuild := "1.4.9"
+  ThisBuild / scapegoatVersion := "1.4.9"
 ) ++ publishSettings
 
 lazy val examples = (Project(id = "examples", base = file("examples")))
@@ -52,15 +52,15 @@ lazy val root = (Project(id = "cls-scala", base = file(".")))
         }
       },
 
-      unmanagedSourceDirectories in Compile += {
-        val sourceDir = (sourceDirectory in Compile).value
+      Compile/unmanagedSourceDirectories += {
+        val sourceDir = (Compile/sourceDirectory).value
         CrossVersion.partialVersion(scalaVersion.value) match {
           case Some((2, n)) if n >= 13 => sourceDir / "scala-2.13+"
           case _                       => sourceDir / "scala-2.12-"
         }
       },
-      unmanagedSourceDirectories in Test += {
-        val sourceDir = (sourceDirectory in Test).value
+      Test/unmanagedSourceDirectories += {
+        val sourceDir = (Test/sourceDirectory).value
         CrossVersion.partialVersion(scalaVersion.value) match {
           case Some((2, n)) if n >= 13 => sourceDir / "scala-2.13+"
           case _                       => sourceDir / "scala-2.12-"
