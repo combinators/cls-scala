@@ -63,6 +63,7 @@ jobs:
         PGP_PASS: ${{ secrets.PGP_PASS }}
         CI: github
       run: |
+        git fetch --prune --unshallow --tags &&
         export GPG_TTY=$(tty) &&
         echo $GPG_PRIVATE | base64 -d | gpg --passphrase=$PGP_PASS --yes --batch --pinentry-mode loopback --import &&
         export PATH=`pwd`/.github/bin:$PATH &&
