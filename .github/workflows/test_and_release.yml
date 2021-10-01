@@ -7,7 +7,7 @@ jobs:
     strategy:
       matrix:
         os: [ windows-latest, ubuntu-latest ]
-        java: [ 8, 11, 15, 16 ]
+        java: [ 8, 11, 16, 17 ]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2.3.4
@@ -26,7 +26,7 @@ jobs:
     - name: Set up JDK, Scala, and SBT
       uses: olafurpg/setup-scala@v13
       with:
-        java-version: adopt@1.16
+        java-version: adopt@1.17
     - name: Analyze coverage
       run: sbt clean coverage +test
     - name: Update coverage report 
@@ -51,7 +51,7 @@ jobs:
       if: steps.check_head_of_master.outputs.head_of_master == steps.check_head_of_master.outputs.current_job_ref
       uses: olafurpg/setup-scala@v13
       with:
-        java-version: adopt@1.16
+        java-version: adopt@1.17
     - name: Build and release
       if: steps.check_head_of_master.outputs.head_of_master == steps.check_head_of_master.outputs.current_job_ref
       env:

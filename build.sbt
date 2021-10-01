@@ -5,7 +5,7 @@ lazy val commonSettings = Seq(
   organization := "org.combinators",
 
   scalaVersion := "2.13.6",
-  crossScalaVersions := Seq("2.11.12", "2.12.14", scalaVersion.value),
+  crossScalaVersions := Seq("2.11.12", "2.12.15", scalaVersion.value),
 
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
@@ -22,7 +22,7 @@ lazy val commonSettings = Seq(
     "-feature",
     "-language:implicitConversions"
   ),
-  ThisBuild / scapegoatVersion := "1.4.9"
+  ThisBuild / scapegoatVersion := "1.4.10"
 ) ++ publishSettings
 
 lazy val examples = (Project(id = "examples", base = file("examples")))
@@ -39,15 +39,15 @@ lazy val root = (Project(id = "cls-scala", base = file(".")))
       libraryDependencies ++= Seq(
         "org.combinators" %% "shapeless-feat" % "0.2.5",
         "org.scala-lang" % "scala-compiler" % scalaVersion.value,
-        "org.scalactic" %% "scalactic" % "3.2.0" % "test",
-        "org.scalatest" %% "scalatest" % "3.2.2" % "test",
-        "ch.qos.logback" % "logback-classic" % "1.2.3",
-        "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
+        "org.scalactic" %% "scalactic" % "3.2.10" % "test",
+        "org.scalatest" %% "scalatest" % "3.2.10" % "test",
+        "ch.qos.logback" % "logback-classic" % "1.2.6",
+        "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4"
       ),
       libraryDependencies ++= {
         CrossVersion.partialVersion(scalaVersion.value) match {
           case Some((2, n)) if n >= 13 =>
-            Seq("org.scala-lang.modules" %% "scala-parallel-collections" % "1.0.0")
+            Seq("org.scala-lang.modules" %% "scala-parallel-collections" % "1.0.4")
           case _ => Seq()
         }
       },

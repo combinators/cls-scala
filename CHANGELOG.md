@@ -1,6 +1,7 @@
 ### Version 3.0.1
-- Updated dependencies and compiled with newest Scala versions
 - Enumeration of results on single core computers fixed
+- Updated dependencies and compiled with newest Scala versions
+- Tested to work with Java 17
 - CI-Pipeline maintenance
 ### Version 3.0.0
 This version replaces the algorithms by the version published in [A Type-Theoretic Framework for Software Component Synthesis](http://dx.doi.org/10.17877/DE290R-20320).
